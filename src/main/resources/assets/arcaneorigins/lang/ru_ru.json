@@ -1,0 +1,12 @@
+{
+  "itemGroup.arcaneorigins": "Arcane Origins: Классы и Магия",
+  "item.arcaneorigins.arcane_spellbook": "Книга Заклинаний",
+  "item.arcaneorigins.frost_staff": "Посох Вечного Льда",
+  "item.arcaneorigins.storm_catalyst": "Грозовой Фокус",
+  "item.arcaneorigins.patron_sigil": "Печать Покровителя",
+  "item.arcaneorigins.scroll_of_rebirth": "Свиток Перерождения",
+  "key.categories.arcaneorigins": "Arcane Origins",
+  "key.arcaneorigins.cast_spell": "Сотворить заклинание",
+  "key.arcaneorigins.cycle_spell": "Сменить заклинание",
+  "key.arcaneorigins.open_menu": "Меню класса"
+}
