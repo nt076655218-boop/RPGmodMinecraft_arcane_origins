@@ -1,0 +1,129 @@
+{
+  "type": "minecraft:chest",
+  "pools": [
+    {
+      "rolls": {
+        "min": 1,
+        "max": 2
+      },
+      "bonus_rolls": 0.0,
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "name": "arcaneorigins:scroll_glacial_lance",
+          "weight": 8
+        },
+        {
+          "type": "minecraft:item",
+          "name": "arcaneorigins:scroll_frost_nova",
+          "weight": 6
+        },
+        {
+          "type": "minecraft:item",
+          "name": "arcaneorigins:scroll_glacial_wall",
+          "weight": 6
+        },
+        {
+          "type": "minecraft:item",
+          "name": "arcaneorigins:scroll_frost_spike_wave",
+          "weight": 6
+        },
+        {
+          "type": "minecraft:item",
+          "name": "arcaneorigins:scroll_blizzard",
+          "weight": 3
+        },
+        {
+          "type": "minecraft:item",
+          "name": "arcaneorigins:scroll_arc_lightning",
+          "weight": 8
+        },
+        {
+          "type": "minecraft:item",
+          "name": "arcaneorigins:scroll_thunderstep",
+          "weight": 6
+        },
+        {
+          "type": "minecraft:item",
+          "name": "arcaneorigins:scroll_storm_orb",
+          "weight": 6
+        },
+        {
+          "type": "minecraft:item",
+          "name": "arcaneorigins:scroll_shockwave_nova",
+          "weight": 6
+        },
+        {
+          "type": "minecraft:item",
+          "name": "arcaneorigins:scroll_tempest",
+          "weight": 3
+        },
+        {
+          "type": "minecraft:item",
+          "name": "arcaneorigins:scroll_void_rift",
+          "weight": 8
+        },
+        {
+          "type": "minecraft:item",
+          "name": "arcaneorigins:scroll_gravity_well",
+          "weight": 6
+        },
+        {
+          "type": "minecraft:item",
+          "name": "arcaneorigins:scroll_zero_g_slam",
+          "weight": 6
+        },
+        {
+          "type": "minecraft:item",
+          "name": "arcaneorigins:scroll_void_pull",
+          "weight": 6
+        },
+        {
+          "type": "minecraft:item",
+          "name": "arcaneorigins:scroll_abyssal_meteor",
+          "weight": 3
+        },
+        {
+          "type": "minecraft:item",
+          "name": "arcaneorigins:scroll_fireball",
+          "weight": 8
+        },
+        {
+          "type": "minecraft:item",
+          "name": "arcaneorigins:scroll_fire_tornado",
+          "weight": 6
+        },
+        {
+          "type": "minecraft:item",
+          "name": "arcaneorigins:scroll_plasma_blast",
+          "weight": 6
+        },
+        {
+          "type": "minecraft:item",
+          "name": "arcaneorigins:scroll_eruption_pillars",
+          "weight": 6
+        },
+        {
+          "type": "minecraft:item",
+          "name": "arcaneorigins:scroll_meteor_shower",
+          "weight": 3
+        },
+        {
+          "type": "minecraft:item",
+          "name": "arcaneorigins:frost_staff",
+          "weight": 3
+        },
+        {
+          "type": "minecraft:item",
+          "name": "arcaneorigins:storm_catalyst",
+          "weight": 3
+        },
+        {
+          "type": "minecraft:item",
+          "name": "arcaneorigins:scroll_of_rebirth",
+          "weight": 3
+        }
+      ]
+    }
+  ]
+}

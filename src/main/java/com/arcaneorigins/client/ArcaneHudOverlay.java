@@ -17,13 +17,13 @@ public class ArcaneHudOverlay {
         Font font = mc.font;
         int screenH = gg.guiHeight();
         int x = 10;
-        int y = screenH - 58;
+        int y = screenH - 60;
 
         RpgClass rpgClass = ClientClassCache.getRpgClass();
         ArcaneSpell spell = ClientClassCache.getSelectedSpell();
 
-        int boxW = 184;
-        int boxH = rpgClass == RpgClass.WARLOCK ? 52 : 44;
+        int boxW = 192;
+        int boxH = rpgClass == RpgClass.WARLOCK ? 54 : 45;
 
         int accent = (0xFF << 24) | (rpgClass != null ? rpgClass.getColor() : 0x3B82F6);
         gg.fill(x, y, x + boxW, y + boxH, 0xB80E111B);
@@ -31,9 +31,10 @@ public class ArcaneHudOverlay {
         gg.fill(x, y + boxH - 1, x + boxW, y + boxH, 0x88334155);
         gg.fill(x, y, x + 2, y + boxH, accent);
 
+        String spBadge = ClientClassCache.skillPoints > 0 ? "  ★ +" + ClientClassCache.skillPoints + " ОЧКО [G]" : "";
         String title = (rpgClass != null ? rpgClass.getDisplayName() : "?")
-                + " • Ур." + ClientClassCache.level;
-        gg.drawString(font, title, x + 6, y + 4, 0xFFF8FAFC, true);
+                + " • Ур." + ClientClassCache.level + spBadge;
+        gg.drawString(font, title, x + 6, y + 4, ClientClassCache.skillPoints > 0 ? 0xFFFDE047 : 0xFFF8FAFC, true);
 
         int barX = x + 6;
         int barY = y + 16;
@@ -52,12 +53,12 @@ public class ArcaneHudOverlay {
             String spellLine = "[R] " + spell.getDisplayName() + " (" + (int) spell.getManaCost() + ")";
             gg.drawString(font, spellLine, x + 6, y + 29, spellColor, true);
         } else {
-            gg.drawString(font, "Заклинаний нет", x + 6, y + 29, 0xFF94A3B8, true);
+            gg.drawString(font, "Открой прокачку [G]", x + 6, y + 29, 0xFF94A3B8, true);
         }
 
         if (rpgClass == RpgClass.WARLOCK) {
             String favorTxt = "Благосклонность: " + ClientClassCache.patronFavor + "/100";
-            gg.drawString(font, favorTxt, x + 6, y + 40, 0xFFD8B4FE, true);
+            gg.drawString(font, favorTxt, x + 6, y + 41, 0xFFD8B4FE, true);
         }
     }
 }

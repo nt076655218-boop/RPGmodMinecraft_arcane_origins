@@ -17,28 +17,13 @@ import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 
 public class ModNetworking {
     public static void registerPayloads(final RegisterPayloadHandlersEvent event) {
-        PayloadRegistrar registrar = event.registrar("4");
+        PayloadRegistrar registrar = event.registrar("5");
 
-        registrar.playToClient(
-                SyncClassDataPayload.TYPE,
-                SyncClassDataPayload.STREAM_CODEC,
-                ModNetworking::handleClientSync
-        );
-        registrar.playToServer(
-                SelectClassPayload.TYPE,
-                SelectClassPayload.STREAM_CODEC,
-                ModNetworking::handleSelectClass
-        );
-        registrar.playToServer(
-                CastSpellPayload.TYPE,
-                CastSpellPayload.STREAM_CODEC,
-                ModNetworking::handleCastSpell
-        );
-        registrar.playToServer(
-                CycleSpellPayload.TYPE,
-                CycleSpellPayload.STREAM_CODEC,
-                ModNetworking::handleCycleSpell
-        );
+        registrar.playToClient(SyncClassDataPayload.TYPE, SyncClassDataPayload.STREAM_CODEC, ModNetworking::handleClientSync);
+        registrar.playToServer(SelectClassPayload.TYPE, SelectClassPayload.STREAM_CODEC, ModNetworking::handleSelectClass);
+        registrar.playToServer(UnlockPerkPayload.TYPE, UnlockPerkPayload.STREAM_CODEC, ModNetworking::handleUnlockPerk);
+        registrar.playToServer(CastSpellPayload.TYPE, CastSpellPayload.STREAM_CODEC, ModNetworking::handleCastSpell);
+        registrar.playToServer(CycleSpellPayload.TYPE, CycleSpellPayload.STREAM_CODEC, ModNetworking::handleCycleSpell);
     }
 
     public static void syncToPlayer(ServerPlayer player, boolean openMenu) {
@@ -54,6 +39,14 @@ public class ModNetworking {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer sp) {
                 ClassManager.chooseClass(sp, payload.classId(), payload.subclassId());
+            }
+        });
+    }
+
+    private static void handleUnlockPerk(UnlockPerkPayload payload, IPayloadContext context) {
+        context.enqueueWork(() -> {
+            if (context.player() instanceof ServerPlayer sp) {
+                ClassManager.unlockPerkNode(sp, payload.perkId());
             }
         });
     }

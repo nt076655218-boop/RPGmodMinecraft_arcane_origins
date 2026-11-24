@@ -20,9 +20,7 @@ import net.minecraft.world.level.Level;
 import java.util.List;
 
 public class ScrollOfRebirthItem extends Item {
-    public ScrollOfRebirthItem(Properties properties) {
-        super(properties);
-    }
+    public ScrollOfRebirthItem(Properties properties) { super(properties); }
 
     @Override
     public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
@@ -31,7 +29,7 @@ public class ScrollOfRebirthItem extends Item {
             PlayerClassData data = sp.getData(ModAttachments.CLASS_DATA);
             data.setClassId("");
             data.setSubclassId("");
-            data.clearSpells();
+            data.clearProgression();
             ClassManager.clearModifiers(sp);
             if (!sp.isCreative()) {
                 stack.shrink(1);

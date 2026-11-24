@@ -40,7 +40,7 @@ public class ClassManager {
         data.setSubclassId(subclass.getId());
         data.setLevel(1);
         data.setClassXp(0);
-        data.clearSpells();
+        data.clearProgression(); // Starts with 1 Skill Point!
 
         applyPassives(player);
         data.setMana(data.getMaxMana());
@@ -62,11 +62,11 @@ public class ClassManager {
                 }
                 case SCHOOL_FIRE -> {
                     data.unlockSpell(ArcaneSpell.FIREBALL);
-                    giveIfMissing(player, new ItemStack(ModItems.SCROLL_FLAME_DASH.get()));
+                    giveIfMissing(player, new ItemStack(ModItems.SCROLL_FIRE_TORNADO.get()));
                 }
                 default -> data.unlockSpell(ArcaneSpell.GLACIAL_LANCE);
             }
-            player.sendSystemMessage(Component.literal("Как Волшебник, ты можешь изучать любые Свитки Заклинаний (ПКМ) и кастовать через Книгу или Посох!")
+            player.sendSystemMessage(Component.literal("Как Волшебник, ты изучаешь любые Свитки Заклинаний (ПКМ) и тратишь очки навыков в [G]!")
                     .withStyle(ChatFormatting.AQUA));
 
         } else if (rpgClass == RpgClass.WARLOCK) {
@@ -79,13 +79,16 @@ public class ClassManager {
             } else {
                 data.unlockSpell(ArcaneSpell.ARC_LIGHTNING);
             }
-            player.sendSystemMessage(Component.literal("Покровитель заключил с вами пакт! Новые дары откроются с повышением уровня Колдуна и подношениями через Сферу.")
+            player.sendSystemMessage(Component.literal("Пакт заключён! Открой меню прокачки [G], чтобы потратить 1-е очко развития на дары Покровителя.")
                     .withStyle(ChatFormatting.LIGHT_PURPLE));
 
         } else if (rpgClass == RpgClass.SORCERER) {
             data.unlockSpell(ArcaneSpell.GLACIAL_LANCE);
             data.unlockSpell(ArcaneSpell.FIREBALL);
-            player.sendSystemMessage(Component.literal("Врождённая магия Чародея пробудилась! Новые заклинания откроются автоматически с ростом уровня класса.")
+            player.sendSystemMessage(Component.literal("Магия крови пробудилась! Открой меню прокачки [G], чтобы развивать врождённые чары.")
+                    .withStyle(ChatFormatting.GOLD));
+        } else {
+            player.sendSystemMessage(Component.literal("Доступно 1 очко развития! Нажми [G], чтобы открыть дерево прокачки класса.")
                     .withStyle(ChatFormatting.GOLD));
         }
 
@@ -99,76 +102,77 @@ public class ClassManager {
         ModNetworking.syncToPlayer(player, false);
     }
 
+    public static void unlockPerkNode(ServerPlayer player, String perkId) {
+        PlayerClassData data = player.getData(ModAttachments.CLASS_DATA);
+        ClassPerk perk = ClassPerk.byId(perkId);
+        if (!data.hasChosenClass() || perk == null) return;
+        if (perk.getRpgClass() != data.getRpgClass()) return;
+        if (data.hasPerk(perk)) return;
+        if (data.getSkillPoints() <= 0 || data.getLevel() < perk.getRequiredLevel()) return;
+
+        data.addSkillPoints(-1);
+        data.unlockPerk(perk);
+
+        // Grant spells tied to Sorcerer / Warlock perk nodes
+        switch (perk) {
+            case SORC_ARCANE_PULSE -> {
+                data.unlockSpell(ArcaneSpell.ARC_LIGHTNING);
+                data.unlockSpell(ArcaneSpell.VOID_RIFT);
+            }
+            case SORC_TWIN_FLOW -> {
+                data.unlockSpell(ArcaneSpell.FIRE_TORNADO);
+                data.unlockSpell(ArcaneSpell.FROST_NOVA);
+            }
+            case SORC_OVERCHARGE -> {
+                data.unlockSpell(ArcaneSpell.STORM_ORB);
+                data.unlockSpell(ArcaneSpell.GRAVITY_WELL);
+            }
+            case SORC_METAMAGIC -> {
+                data.unlockSpell(ArcaneSpell.ZERO_G_SLAM);
+                data.unlockSpell(ArcaneSpell.PLASMA_BLAST);
+            }
+            case SORC_APOTHEOSIS -> {
+                data.unlockSpell(ArcaneSpell.METEOR_SHOWER);
+                data.unlockSpell(ArcaneSpell.ABYSSAL_METEOR);
+            }
+            case LOCK_PACT_BOON -> {
+                data.unlockSpell(ArcaneSpell.GRAVITY_WELL);
+                data.addPatronFavor(15);
+            }
+            case LOCK_SOUL_SIPHON -> data.unlockSpell(ArcaneSpell.FIRE_TORNADO);
+            case LOCK_ELDRITCH_SIGHT -> {
+                data.unlockSpell(ArcaneSpell.VOID_PULL);
+                data.unlockSpell(ArcaneSpell.SHOCKWAVE_NOVA);
+            }
+            case LOCK_ABYSSAL_ARMOR -> data.unlockSpell(ArcaneSpell.ZERO_G_SLAM);
+            case LOCK_HERALD_DOOM -> {
+                data.unlockSpell(ArcaneSpell.ABYSSAL_METEOR);
+                data.unlockSpell(ArcaneSpell.TEMPEST_JUDGMENT);
+                data.setPatronFavor(100);
+            }
+            default -> {
+                if (perk.getPrimarySpell() != null) {
+                    data.unlockSpell(perk.getPrimarySpell());
+                }
+            }
+        }
+
+        applyPassives(player);
+        player.sendSystemMessage(Component.literal("✦ Изучен талант: ")
+                .withStyle(ChatFormatting.GOLD)
+                .append(Component.literal(perk.getTitle()).withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD)));
+        player.serverLevel().playSound(null, player.getX(), player.getY(), player.getZ(),
+                SoundEvents.ENCHANTMENT_TABLE_USE, SoundSource.PLAYERS, 1.0f, 1.25f);
+        ModNetworking.syncToPlayer(player, false);
+    }
+
     public static void onClassLevelUp(ServerPlayer player, PlayerClassData data) {
         applyPassives(player);
         int lvl = data.getLevel();
-        RpgClass rpgClass = data.getRpgClass();
-        RpgSubclass sub = data.getRpgSubclass();
-
-        player.sendSystemMessage(Component.literal("★ Уровень класса повышен до " + lvl + "!").withStyle(ChatFormatting.GOLD));
+        player.sendSystemMessage(Component.literal("★ Уровень класса повышен до " + lvl + "! (+1 Очко развития — нажми [G])")
+                .withStyle(ChatFormatting.GOLD));
         player.serverLevel().playSound(null, player.getX(), player.getY(), player.getZ(),
                 SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 0.9f, 1.2f);
-
-        if (rpgClass == RpgClass.WARLOCK) {
-            unlockWarlockProgression(player, data, sub, lvl, data.getPatronFavor());
-        } else if (rpgClass == RpgClass.SORCERER) {
-            unlockSorcererProgression(player, data, lvl);
-        }
-    }
-
-    public static void unlockWarlockProgression(ServerPlayer player, PlayerClassData data, RpgSubclass sub, int lvl, int favor) {
-        if (sub == RpgSubclass.PATRON_ABYSS) {
-            if (lvl >= 2 || favor >= 40) tryAnnounceSpellUnlock(player, data, ArcaneSpell.GRAVITY_WELL);
-            if (lvl >= 3 || favor >= 65) tryAnnounceSpellUnlock(player, data, ArcaneSpell.ZERO_G_SLAM);
-            if (lvl >= 4 || favor >= 85) tryAnnounceSpellUnlock(player, data, ArcaneSpell.FROST_NOVA);
-            if (lvl >= 5 || favor >= 95) tryAnnounceSpellUnlock(player, data, ArcaneSpell.ABYSSAL_METEOR);
-        } else if (sub == RpgSubclass.PATRON_INFERNO) {
-            if (lvl >= 2 || favor >= 40) tryAnnounceSpellUnlock(player, data, ArcaneSpell.FLAME_DASH);
-            if (lvl >= 3 || favor >= 65) tryAnnounceSpellUnlock(player, data, ArcaneSpell.INFERNO_RING);
-            if (lvl >= 4 || favor >= 85) tryAnnounceSpellUnlock(player, data, ArcaneSpell.VOID_RIFT);
-            if (lvl >= 5 || favor >= 95) tryAnnounceSpellUnlock(player, data, ArcaneSpell.METEOR_SHOWER);
-        } else {
-            // PATRON_ELDER
-            if (lvl >= 2 || favor >= 40) tryAnnounceSpellUnlock(player, data, ArcaneSpell.VOID_RIFT);
-            if (lvl >= 3 || favor >= 65) tryAnnounceSpellUnlock(player, data, ArcaneSpell.STORM_ORB);
-            if (lvl >= 4 || favor >= 85) tryAnnounceSpellUnlock(player, data, ArcaneSpell.GRAVITY_WELL);
-            if (lvl >= 5 || favor >= 95) tryAnnounceSpellUnlock(player, data, ArcaneSpell.TEMPEST_JUDGMENT);
-        }
-    }
-
-    public static void unlockSorcererProgression(ServerPlayer player, PlayerClassData data, int lvl) {
-        if (lvl >= 2) {
-            tryAnnounceSpellUnlock(player, data, ArcaneSpell.ARC_LIGHTNING);
-            tryAnnounceSpellUnlock(player, data, ArcaneSpell.VOID_RIFT);
-        }
-        if (lvl >= 3) {
-            tryAnnounceSpellUnlock(player, data, ArcaneSpell.FROST_NOVA);
-            tryAnnounceSpellUnlock(player, data, ArcaneSpell.FLAME_DASH);
-        }
-        if (lvl >= 4) {
-            tryAnnounceSpellUnlock(player, data, ArcaneSpell.STORM_ORB);
-            tryAnnounceSpellUnlock(player, data, ArcaneSpell.GRAVITY_WELL);
-        }
-        if (lvl >= 5) {
-            tryAnnounceSpellUnlock(player, data, ArcaneSpell.INFERNO_RING);
-            tryAnnounceSpellUnlock(player, data, ArcaneSpell.ZERO_G_SLAM);
-        }
-        if (lvl >= 6) {
-            tryAnnounceSpellUnlock(player, data, ArcaneSpell.BLIZZARD_TEMPEST);
-            tryAnnounceSpellUnlock(player, data, ArcaneSpell.METEOR_SHOWER);
-        }
-        if (lvl >= 7) {
-            tryAnnounceSpellUnlock(player, data, ArcaneSpell.TEMPEST_JUDGMENT);
-            tryAnnounceSpellUnlock(player, data, ArcaneSpell.ABYSSAL_METEOR);
-        }
-    }
-
-    public static void tryAnnounceSpellUnlock(ServerPlayer player, PlayerClassData data, ArcaneSpell spell) {
-        if (data.unlockSpell(spell)) {
-            player.sendSystemMessage(Component.literal("✦ Открыто новое заклинание: ")
-                    .withStyle(ChatFormatting.AQUA)
-                    .append(Component.literal(spell.getDisplayName()).withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD)));
-        }
     }
 
     public static void applyPassives(ServerPlayer player) {
@@ -181,48 +185,56 @@ public class ClassManager {
         int lvlBonus = data.getLevel() - 1;
         float maxMana = rpgClass.getBaseMaxMana() + lvlBonus * 12.0f;
 
+        double bonusHp = 0.0;
+        double bonusArmor = 0.0;
+        double bonusAtk = 0.0;
+        double bonusAtkSpd = 0.0;
+        double bonusSpeed = 0.0;
+        double bonusKb = 0.0;
+
         switch (sub) {
-            case KNIGHT -> {
-                setModifier(player, Attributes.ARMOR, MOD_ARMOR, 4.0 + lvlBonus * 0.4, AttributeModifier.Operation.ADD_VALUE);
-                setModifier(player, Attributes.MAX_HEALTH, MOD_HP, 4.0 + lvlBonus * 0.5, AttributeModifier.Operation.ADD_VALUE);
-            }
-            case BLADEMASTER -> {
-                setModifier(player, Attributes.ATTACK_SPEED, MOD_ATK_SPD, 0.18 + lvlBonus * 0.015, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
-                setModifier(player, Attributes.ATTACK_DAMAGE, MOD_ATK, 2.0 + lvlBonus * 0.3, AttributeModifier.Operation.ADD_VALUE);
-            }
-            case GUARDIAN -> {
-                setModifier(player, Attributes.ARMOR, MOD_ARMOR, 2.0 + lvlBonus * 0.3, AttributeModifier.Operation.ADD_VALUE);
-                setModifier(player, Attributes.MAX_HEALTH, MOD_HP, 6.0 + lvlBonus * 0.6, AttributeModifier.Operation.ADD_VALUE);
-                setModifier(player, Attributes.KNOCKBACK_RESISTANCE, MOD_KB, 0.40, AttributeModifier.Operation.ADD_VALUE);
-            }
-            case BERSERKER -> {
-                setModifier(player, Attributes.ATTACK_DAMAGE, MOD_ATK, 3.0 + lvlBonus * 0.35, AttributeModifier.Operation.ADD_VALUE);
-                setModifier(player, Attributes.MAX_HEALTH, MOD_HP, 2.0, AttributeModifier.Operation.ADD_VALUE);
-            }
-            case TOTEMIC -> setModifier(player, Attributes.MAX_HEALTH, MOD_HP, 6.0 + lvlBonus * 0.6, AttributeModifier.Operation.ADD_VALUE);
-            case THUNDERBREAKER -> {
-                setModifier(player, Attributes.MOVEMENT_SPEED, MOD_SPEED, 0.15, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
-                setModifier(player, Attributes.ATTACK_DAMAGE, MOD_ATK, 1.5 + lvlBonus * 0.25, AttributeModifier.Operation.ADD_VALUE);
-            }
+            case KNIGHT -> { bonusArmor += 4.0 + lvlBonus * 0.4; bonusHp += 4.0 + lvlBonus * 0.5; }
+            case BLADEMASTER -> { bonusAtkSpd += 0.18 + lvlBonus * 0.015; bonusAtk += 2.0 + lvlBonus * 0.3; }
+            case GUARDIAN -> { bonusArmor += 2.0 + lvlBonus * 0.3; bonusHp += 6.0 + lvlBonus * 0.6; bonusKb += 0.40; }
+            case BERSERKER -> { bonusAtk += 3.0 + lvlBonus * 0.35; bonusHp += 2.0; }
+            case TOTEMIC -> { bonusHp += 6.0 + lvlBonus * 0.6; }
+            case THUNDERBREAKER -> { bonusSpeed += 0.15; bonusAtk += 1.5 + lvlBonus * 0.25; }
             case SCHOOL_ICE, SCHOOL_GRAVITY, SCHOOL_FIRE -> maxMana *= 1.15f;
-            case SCHOOL_LIGHTNING -> {
-                maxMana *= 1.15f;
-                setModifier(player, Attributes.MOVEMENT_SPEED, MOD_SPEED, 0.12, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
-            }
+            case SCHOOL_LIGHTNING -> { maxMana *= 1.15f; bonusSpeed += 0.12; }
             case PATRON_ABYSS -> maxMana *= 1.20f;
             case PATRON_ELDER -> maxMana *= 1.10f;
-            case PATRON_INFERNO -> setModifier(player, Attributes.ATTACK_DAMAGE, MOD_ATK, 2.0, AttributeModifier.Operation.ADD_VALUE);
-            case DRACONIC -> {
-                setModifier(player, Attributes.ARMOR, MOD_ARMOR, 4.0, AttributeModifier.Operation.ADD_VALUE);
-                setModifier(player, Attributes.MAX_HEALTH, MOD_HP, 4.0, AttributeModifier.Operation.ADD_VALUE);
-                maxMana *= 1.20f;
-            }
+            case PATRON_INFERNO -> bonusAtk += 2.0;
+            case DRACONIC -> { bonusArmor += 4.0; bonusHp += 4.0; maxMana *= 1.20f; }
             case WILD_MAGIC -> maxMana *= 1.10f;
-            case ASTRAL -> {
-                setModifier(player, Attributes.MOVEMENT_SPEED, MOD_SPEED, 0.15, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
-                maxMana *= 1.15f;
-            }
+            case ASTRAL -> { bonusSpeed += 0.15; maxMana *= 1.15f; }
         }
+
+        // Perk tree attribute bonuses
+        if (data.hasPerk(ClassPerk.WAR_IRON_SKIN)) { bonusArmor += 3.0; bonusHp += 4.0; }
+        if (data.hasPerk(ClassPerk.WAR_WEAPON_MASTERY)) { bonusAtk += 2.5; bonusAtkSpd += 0.12; }
+        if (data.hasPerk(ClassPerk.WAR_SECOND_WIND)) { bonusHp += 4.0; }
+        if (data.hasPerk(ClassPerk.WAR_WARLORD)) { bonusArmor += 4.0; bonusHp += 6.0; bonusKb += 0.30; }
+
+        if (data.hasPerk(ClassPerk.BARB_THICK_HIDE)) { bonusHp += 6.0; bonusArmor += 2.0; }
+        if (data.hasPerk(ClassPerk.BARB_UNYIELDING)) { bonusSpeed += 0.18; bonusAtk += 3.0; }
+        if (data.hasPerk(ClassPerk.BARB_TITAN_RAGE)) { bonusHp += 8.0; bonusAtk += 4.0; }
+
+        if (data.hasPerk(ClassPerk.SORC_ARCANE_PULSE)) { maxMana += 25.0f; }
+        if (data.hasPerk(ClassPerk.SORC_APOTHEOSIS)) { maxMana += 50.0f; }
+
+        if (data.hasPerk(ClassPerk.LOCK_ELDRITCH_SIGHT)) { maxMana += 35.0f; }
+        if (data.hasPerk(ClassPerk.LOCK_ABYSSAL_ARMOR)) { bonusArmor += 4.0; }
+
+        if (data.hasPerk(ClassPerk.WIZ_SCHOLAR)) { maxMana += 35.0f; }
+        if (data.hasPerk(ClassPerk.WIZ_ARCANE_WARD)) { bonusArmor += 4.0; bonusHp += 4.0; }
+        if (data.hasPerk(ClassPerk.WIZ_ARCHMAGE)) { maxMana += 60.0f; }
+
+        if (bonusHp > 0) setModifier(player, Attributes.MAX_HEALTH, MOD_HP, bonusHp, AttributeModifier.Operation.ADD_VALUE);
+        if (bonusArmor > 0) setModifier(player, Attributes.ARMOR, MOD_ARMOR, bonusArmor, AttributeModifier.Operation.ADD_VALUE);
+        if (bonusAtk > 0) setModifier(player, Attributes.ATTACK_DAMAGE, MOD_ATK, bonusAtk, AttributeModifier.Operation.ADD_VALUE);
+        if (bonusAtkSpd > 0) setModifier(player, Attributes.ATTACK_SPEED, MOD_ATK_SPD, bonusAtkSpd, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
+        if (bonusSpeed > 0) setModifier(player, Attributes.MOVEMENT_SPEED, MOD_SPEED, bonusSpeed, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
+        if (bonusKb > 0) setModifier(player, Attributes.KNOCKBACK_RESISTANCE, MOD_KB, Math.min(1.0, bonusKb), AttributeModifier.Operation.ADD_VALUE);
 
         data.setMaxMana(maxMana);
     }

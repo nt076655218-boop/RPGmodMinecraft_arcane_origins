@@ -15,9 +15,11 @@ public class ClientClassCache {
     public static float maxMana = 100.0f;
     public static int level = 1;
     public static int classXp = 0;
+    public static int skillPoints = 0;
     public static String selectedSpellId = "";
     public static int patronFavor = 0;
     public static List<String> unlockedSpells = new ArrayList<>();
+    public static List<String> unlockedPerks = new ArrayList<>();
     public static boolean pendingOpenMenu = false;
 
     public static void update(SyncClassDataPayload p) {
@@ -28,20 +30,20 @@ public class ClientClassCache {
         maxMana = Math.max(1.0f, p.maxMana());
         level = p.level();
         classXp = p.classXp();
+        skillPoints = p.skillPoints();
         selectedSpellId = p.selectedSpellId();
         patronFavor = p.patronFavor();
         unlockedSpells = new ArrayList<>(p.unlockedSpells());
+        unlockedPerks = new ArrayList<>(p.unlockedPerks());
         if (p.openMenu()) {
             pendingOpenMenu = true;
         }
     }
 
-    public static boolean hasChosenClass() {
-        return !classId.isEmpty() && RpgClass.byId(classId) != null;
-    }
-
+    public static boolean hasChosenClass() { return !classId.isEmpty() && RpgClass.byId(classId) != null; }
     public static RpgClass getRpgClass() { return RpgClass.byId(classId); }
     public static RpgSubclass getRpgSubclass() { return RpgSubclass.byId(subclassId); }
+    public static int getXpForNextLevel() { return 55 + (level - 1) * 40; }
 
     public static ArcaneSpell getSelectedSpell() {
         if (unlockedSpells.isEmpty()) return null;

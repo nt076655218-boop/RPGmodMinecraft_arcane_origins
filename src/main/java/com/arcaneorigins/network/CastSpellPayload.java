@@ -14,7 +14,5 @@ public record CastSpellPayload() implements CustomPacketPayload {
             StreamCodec.of((buf, p) -> {}, buf -> new CastSpellPayload());
 
     @Override
-    public Type<? extends CustomPacketPayload> type() {
-        return TYPE;
-    }
+    public Type<? extends CustomPacketPayload> type() { return TYPE; }
 }

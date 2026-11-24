@@ -18,9 +18,11 @@ public record SyncClassDataPayload(
         float maxMana,
         int level,
         int classXp,
+        int skillPoints,
         String selectedSpellId,
         int patronFavor,
         List<String> unlockedSpells,
+        List<String> unlockedPerks,
         boolean openMenu
 ) implements CustomPacketPayload {
 
@@ -39,9 +41,11 @@ public record SyncClassDataPayload(
                 data.getMaxMana(),
                 data.getLevel(),
                 data.getClassXp(),
+                data.getSkillPoints(),
                 data.getSelectedSpellId(),
                 data.getPatronFavor(),
                 data.getUnlockedSpellIds(),
+                data.getUnlockedPerkIds(),
                 openMenu
         );
     }
@@ -54,12 +58,13 @@ public record SyncClassDataPayload(
         buf.writeFloat(p.maxMana);
         buf.writeInt(p.level);
         buf.writeInt(p.classXp);
+        buf.writeInt(p.skillPoints);
         buf.writeUtf(p.selectedSpellId);
         buf.writeInt(p.patronFavor);
         buf.writeInt(p.unlockedSpells.size());
-        for (String id : p.unlockedSpells) {
-            buf.writeUtf(id);
-        }
+        for (String id : p.unlockedSpells) buf.writeUtf(id);
+        buf.writeInt(p.unlockedPerks.size());
+        for (String id : p.unlockedPerks) buf.writeUtf(id);
         buf.writeBoolean(p.openMenu);
     }
 
@@ -71,20 +76,20 @@ public record SyncClassDataPayload(
         float maxMana = buf.readFloat();
         int level = buf.readInt();
         int classXp = buf.readInt();
+        int skillPoints = buf.readInt();
         String selectedSpellId = buf.readUtf();
         int patronFavor = buf.readInt();
-        int count = buf.readInt();
-        List<String> spells = new ArrayList<>(Math.max(0, count));
-        for (int i = 0; i < count; i++) {
-            spells.add(buf.readUtf());
-        }
+        int sCount = buf.readInt();
+        List<String> spells = new ArrayList<>(Math.max(0, sCount));
+        for (int i = 0; i < sCount; i++) spells.add(buf.readUtf());
+        int pCount = buf.readInt();
+        List<String> perks = new ArrayList<>(Math.max(0, pCount));
+        for (int i = 0; i < pCount; i++) perks.add(buf.readUtf());
         boolean openMenu = buf.readBoolean();
         return new SyncClassDataPayload(classId, subclassId, sorcererUnlocked, mana, maxMana,
-                level, classXp, selectedSpellId, patronFavor, spells, openMenu);
+                level, classXp, skillPoints, selectedSpellId, patronFavor, spells, perks, openMenu);
     }
 
     @Override
-    public Type<? extends CustomPacketPayload> type() {
-        return TYPE;
-    }
+    public Type<? extends CustomPacketPayload> type() { return TYPE; }
 }

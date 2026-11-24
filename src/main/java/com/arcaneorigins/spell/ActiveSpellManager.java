@@ -13,9 +13,12 @@ import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
+import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.*;
@@ -92,28 +95,40 @@ public class ActiveSpellManager {
         }
     }
 
+    public static void addFlyingFireball(ServerLevel level, UUID casterId, Vec3 start, Vec3 velocity, float powerMultiplier) {
+        EFFECTS.add(new ActiveEffect(EffectType.FLYING_FIREBALL, level, casterId, start, velocity, Vec3.ZERO, 45, powerMultiplier));
+    }
+
+    public static void addFireTornado(ServerLevel level, UUID casterId, Vec3 start, float powerMultiplier) {
+        EFFECTS.add(new ActiveEffect(EffectType.FIRE_TORNADO, level, casterId, start, Vec3.ZERO, Vec3.ZERO, 95, powerMultiplier));
+    }
+
+    public static void addVoidPortalGate(ServerLevel level, UUID casterId, Vec3 center, Vec3 facingDir, float powerMultiplier) {
+        EFFECTS.add(new ActiveEffect(EffectType.VOID_PORTAL_GATE, level, casterId, center, Vec3.ZERO, facingDir, 70, powerMultiplier));
+    }
+
     public static void addBlizzard(ServerLevel level, UUID casterId, Vec3 center, float powerMultiplier) {
-        EFFECTS.add(new ActiveEffect(EffectType.BLIZZARD, level, casterId, center, Vec3.ZERO, 70, powerMultiplier));
+        EFFECTS.add(new ActiveEffect(EffectType.BLIZZARD, level, casterId, center, Vec3.ZERO, Vec3.ZERO, 70, powerMultiplier));
     }
 
     public static void addTempest(ServerLevel level, UUID casterId, Vec3 center, float powerMultiplier) {
-        EFFECTS.add(new ActiveEffect(EffectType.TEMPEST, level, casterId, center, Vec3.ZERO, 60, powerMultiplier));
+        EFFECTS.add(new ActiveEffect(EffectType.TEMPEST, level, casterId, center, Vec3.ZERO, Vec3.ZERO, 60, powerMultiplier));
     }
 
     public static void addStormOrb(ServerLevel level, UUID casterId, Vec3 start, Vec3 velocity, float powerMultiplier) {
-        EFFECTS.add(new ActiveEffect(EffectType.STORM_ORB, level, casterId, start, velocity, 55, powerMultiplier));
+        EFFECTS.add(new ActiveEffect(EffectType.STORM_ORB, level, casterId, start, velocity, Vec3.ZERO, 55, powerMultiplier));
     }
 
     public static void addGravityWell(ServerLevel level, UUID casterId, Vec3 center, float powerMultiplier) {
-        EFFECTS.add(new ActiveEffect(EffectType.GRAVITY_WELL, level, casterId, center, Vec3.ZERO, 65, powerMultiplier));
+        EFFECTS.add(new ActiveEffect(EffectType.GRAVITY_WELL, level, casterId, center, Vec3.ZERO, Vec3.ZERO, 65, powerMultiplier));
     }
 
     public static void addZeroGSlam(ServerLevel level, UUID casterId, Vec3 center, float powerMultiplier) {
-        EFFECTS.add(new ActiveEffect(EffectType.ZERO_G_SLAM, level, casterId, center, Vec3.ZERO, 26, powerMultiplier));
+        EFFECTS.add(new ActiveEffect(EffectType.ZERO_G_SLAM, level, casterId, center, Vec3.ZERO, Vec3.ZERO, 26, powerMultiplier));
     }
 
     public static void addMeteorShower(ServerLevel level, UUID casterId, Vec3 center, float powerMultiplier) {
-        EFFECTS.add(new ActiveEffect(EffectType.METEOR_SHOWER, level, casterId, center, Vec3.ZERO, 62, powerMultiplier));
+        EFFECTS.add(new ActiveEffect(EffectType.METEOR_SHOWER, level, casterId, center, Vec3.ZERO, Vec3.ZERO, 62, powerMultiplier));
     }
 
     public static void tick(MinecraftServer server) {
@@ -207,15 +222,181 @@ public class ActiveSpellManager {
                 continue;
             }
             ServerPlayer caster = server.getPlayerList().getPlayer(effect.casterId);
-            switch (effect.type) {
-                case BLIZZARD -> tickBlizzard(effect, caster);
-                case TEMPEST -> tickTempest(effect, caster);
-                case STORM_ORB -> tickStormOrb(effect, caster);
-                case GRAVITY_WELL -> tickGravityWell(effect, caster);
-                case ZERO_G_SLAM -> tickZeroGSlam(effect, caster);
-                case METEOR_SHOWER -> tickMeteorShower(effect, caster);
+            boolean done = switch (effect.type) {
+                case FLYING_FIREBALL -> tickFlyingFireball(effect, caster);
+                case FIRE_TORNADO -> tickFireTornado(effect, caster);
+                case VOID_PORTAL_GATE -> tickVoidPortalGate(effect, caster);
+                case BLIZZARD -> { tickBlizzard(effect, caster); yield false; }
+                case TEMPEST -> { tickTempest(effect, caster); yield false; }
+                case STORM_ORB -> { tickStormOrb(effect, caster); yield false; }
+                case GRAVITY_WELL -> { tickGravityWell(effect, caster); yield false; }
+                case ZERO_G_SLAM -> { tickZeroGSlam(effect, caster); yield false; }
+                case METEOR_SHOWER -> { tickMeteorShower(effect, caster); yield false; }
+            };
+            if (done) {
+                it.remove();
             }
         }
+    }
+
+    /**
+     * True Flying Fireball Projectile with blazing core, ember trail, and explosion on impact!
+     */
+    private static boolean tickFlyingFireball(ActiveEffect e, ServerPlayer caster) {
+        ServerLevel level = e.level;
+        Vec3 prev = e.center;
+        Vec3 next = prev.add(e.velocity);
+
+        // Render dense blazing sphere + trailing flames along step
+        for (int s = 0; s <= 4; s++) {
+            Vec3 p = prev.lerp(next, s / 4.0);
+            level.sendParticles(SpellVfx.FIRE_YELLOW, p.x, p.y, p.z, 3, 0.14, 0.14, 0.14, 0);
+            level.sendParticles(SpellVfx.FIRE_ORANGE, p.x, p.y, p.z, 5, 0.28, 0.28, 0.28, 0);
+            level.sendParticles(ParticleTypes.FLAME, p.x, p.y, p.z, 4, 0.22, 0.22, 0.22, 0.03);
+            if (s % 2 == 0) {
+                level.sendParticles(ParticleTypes.LARGE_SMOKE, p.x, p.y, p.z, 1, 0.15, 0.15, 0.15, 0.01);
+            }
+        }
+
+        // Check block collision
+        BlockHitResult blockHit = level.clip(new ClipContext(prev, next, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, caster));
+        Vec3 impactPos = null;
+        if (blockHit.getType() != HitResult.Type.MISS) {
+            impactPos = blockHit.getLocation();
+        } else {
+            // Check entity collision
+            AABB hitBox = new AABB(prev, next).inflate(0.95);
+            List<LivingEntity> hits = level.getEntitiesOfClass(LivingEntity.class, hitBox,
+                    ent -> ent.isAlive() && (caster == null || !ent.getUUID().equals(caster.getUUID())));
+            if (!hits.isEmpty()) {
+                impactPos = hits.get(0).getBoundingBox().getCenter();
+            }
+        }
+
+        if (impactPos != null || e.age >= e.durationTicks) {
+            Vec3 boom = impactPos != null ? impactPos : next;
+            SpellVfx.spawnFireExplosion(level, boom, 4.0);
+            level.playSound(null, boom.x, boom.y, boom.z, SoundEvents.GENERIC_EXPLODE.value(), SoundSource.PLAYERS, 1.35f, 0.95f);
+
+            AABB blast = new AABB(boom.x - 4.2, boom.y - 2.5, boom.z - 4.2, boom.x + 4.2, boom.y + 3.5, boom.z + 4.2);
+            for (LivingEntity target : level.getEntitiesOfClass(LivingEntity.class, blast,
+                    ent -> ent.isAlive() && (caster == null || !ent.getUUID().equals(caster.getUUID())))) {
+                target.hurt(level.damageSources().inFire(), 10.5f * e.powerMultiplier);
+                target.igniteForSeconds(6);
+                if (!FROZEN_TARGETS.containsKey(target.getUUID())) {
+                    Vec3 push = target.position().subtract(boom).normalize().scale(0.85);
+                    target.setDeltaMovement(push.x, 0.35, push.z);
+                    target.hurtMarked = true;
+                }
+                SpellExecutor.onSpellHitTarget(caster, target);
+            }
+            return true;
+        }
+
+        e.center = next;
+        return false;
+    }
+
+    /**
+     * Fire Tornado: Spawns on the caster and follows them for ~4.8 seconds, burning & lifting nearby enemies!
+     */
+    private static boolean tickFireTornado(ActiveEffect e, ServerPlayer caster) {
+        ServerLevel level = e.level;
+        if (caster != null && caster.isAlive() && caster.serverLevel() == level) {
+            e.center = e.center.lerp(caster.position(), 0.45);
+        }
+        Vec3 c = e.center;
+        double spin = e.age * 0.55;
+
+        // Funnel vortex of flame, orange & yellow dust, and smoke
+        for (int arm = 0; arm < 3; arm++) {
+            double baseAngle = spin + arm * (2.0 * Math.PI / 3.0);
+            for (int h = 0; h < 8; h++) {
+                double yOff = h * 0.55;
+                double radius = 1.2 + h * 0.38;
+                double a = baseAngle + h * 0.58;
+                double x = c.x + Math.cos(a) * radius;
+                double z = c.z + Math.sin(a) * radius;
+                level.sendParticles(h % 2 == 0 ? SpellVfx.FIRE_ORANGE : SpellVfx.FIRE_YELLOW, x, c.y + yOff, z, 1, 0, 0, 0, 0);
+                level.sendParticles(ParticleTypes.FLAME, x, c.y + yOff + 0.15, z, 1, 0.1, 0.1, 0.1, 0.02);
+                if (h == 7) {
+                    level.sendParticles(ParticleTypes.LARGE_SMOKE, x, c.y + yOff + 0.3, z, 1, 0.2, 0.1, 0.2, 0.01);
+                }
+            }
+        }
+
+        if (e.age % 6 == 0) {
+            level.playSound(null, c.x, c.y, c.z, SoundEvents.BLAZE_AMBIENT, SoundSource.PLAYERS, 0.75f, 1.35f);
+            AABB box = new AABB(c.x - 4.4, c.y - 1.0, c.z - 4.4, c.x + 4.4, c.y + 4.2, c.z + 4.4);
+            for (LivingEntity target : level.getEntitiesOfClass(LivingEntity.class, box,
+                    ent -> ent.isAlive() && (caster == null || !ent.getUUID().equals(caster.getUUID())))) {
+                target.hurt(level.damageSources().inFire(), 3.2f * e.powerMultiplier);
+                target.igniteForSeconds(4);
+                if (!FROZEN_TARGETS.containsKey(target.getUUID())) {
+                    // Swirling updraft around the caster
+                    Vec3 rel = target.position().subtract(c);
+                    Vec3 tangent = new Vec3(-rel.z, 0, rel.x).normalize().scale(0.35);
+                    target.setDeltaMovement(tangent.x, 0.26, tangent.z);
+                    target.hurtMarked = true;
+                }
+                SpellExecutor.onSpellHitTarget(caster, target);
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Void Portal Gate: Opens an upright dark dimensional portal right in front of the caster,
+     * pulling nearby enemies into the abyssal gateway with Wither & void damage!
+     */
+    private static boolean tickVoidPortalGate(ActiveEffect e, ServerPlayer caster) {
+        ServerLevel level = e.level;
+        Vec3 c = e.center.add(0, 1.8, 0);
+        Vec3 forward = e.facingDir;
+        Vec3 right = new Vec3(-forward.z, 0, forward.x).normalize();
+        if (right.lengthSqr() < 0.01) right = new Vec3(1, 0, 0);
+
+        double width = 1.45;
+        double height = 2.15;
+        double spin = e.age * 0.25;
+
+        // Vertical oval portal frame + swirling abyss core
+        int rimPoints = 28;
+        for (int i = 0; i < rimPoints; i++) {
+            double a = (2.0 * Math.PI * i) / rimPoints;
+            Vec3 pt = c.add(right.scale(Math.cos(a) * width)).add(0, Math.sin(a) * height, 0);
+            level.sendParticles(i % 2 == 0 ? SpellVfx.VOID_PURPLE : SpellVfx.VOID_MAGENTA, pt.x, pt.y, pt.z, 1, 0, 0, 0, 0);
+        }
+
+        // Inner dark event horizon + spiraling portal particles
+        for (int k = 0; k < 10; k++) {
+            double rFrac = (k / 10.0) * 0.85;
+            double a = spin + k * 0.9;
+            Vec3 inner = c.add(right.scale(Math.cos(a) * width * rFrac)).add(0, Math.sin(a) * height * rFrac, 0);
+            level.sendParticles(SpellVfx.VOID_BLACK, inner.x, inner.y, inner.z, 2, 0.12, 0.12, 0.12, 0);
+            if (k % 2 == 0) {
+                level.sendParticles(ParticleTypes.PORTAL, inner.x, inner.y, inner.z, 2, 0.25, 0.25, 0.25, 0.35);
+            }
+        }
+
+        if (e.age % 6 == 0) {
+            level.playSound(null, c.x, c.y, c.z, SoundEvents.PORTAL_AMBIENT, SoundSource.PLAYERS, 0.7f, 0.55f);
+            AABB pullBox = new AABB(c.x - 5.2, c.y - 2.5, c.z - 5.2, c.x + 5.2, c.y + 3.0, c.z + 5.2);
+            for (LivingEntity target : level.getEntitiesOfClass(LivingEntity.class, pullBox,
+                    ent -> ent.isAlive() && (caster == null || !ent.getUUID().equals(caster.getUUID())))) {
+                if (!FROZEN_TARGETS.containsKey(target.getUUID())) {
+                    Vec3 pull = c.subtract(target.position().add(0, 1.0, 0)).normalize().scale(0.38);
+                    target.setDeltaMovement(pull.x, 0.12, pull.z);
+                    target.hurtMarked = true;
+                }
+                if (target.distanceToSqr(c) <= 9.0) {
+                    target.hurt(level.damageSources().magic(), 3.2f * e.powerMultiplier);
+                    target.addEffect(new MobEffectInstance(MobEffects.WITHER, 60, 1));
+                    SpellExecutor.onSpellHitTarget(caster, target);
+                }
+            }
+        }
+        return false;
     }
 
     private static void tickBlizzard(ActiveEffect e, ServerPlayer caster) {
@@ -335,15 +516,11 @@ public class ActiveSpellManager {
         }
     }
 
-    /**
-     * Storm Orb: Drifting ball lightning that zaps every nearby enemy with mini-arcs every 8 ticks!
-     */
     private static void tickStormOrb(ActiveEffect e, ServerPlayer caster) {
         ServerLevel level = e.level;
         e.center = e.center.add(e.velocity);
         Vec3 c = e.center;
 
-        // Glowing plasma core + orbiting sparks
         level.sendParticles(SpellVfx.LIGHTNING_CORE, c.x, c.y, c.z, 4, 0.12, 0.12, 0.12, 0);
         level.sendParticles(SpellVfx.LIGHTNING_BLUE, c.x, c.y, c.z, 6, 0.32, 0.32, 0.32, 0);
         level.sendParticles(ParticleTypes.ELECTRIC_SPARK, c.x, c.y, c.z, 5, 0.4, 0.4, 0.4, 0.08);
@@ -366,15 +543,11 @@ public class ActiveSpellManager {
         }
     }
 
-    /**
-     * Gravity Well: Swirling black hole vortex that pulls enemies inward and implodes at the end!
-     */
     private static void tickGravityWell(ActiveEffect e, ServerPlayer caster) {
         ServerLevel level = e.level;
         Vec3 c = e.center.add(0, 1.1, 0);
         double spin = e.age * 0.38;
 
-        // Dark event horizon sphere + accretion disk rings
         level.sendParticles(SpellVfx.VOID_BLACK, c.x, c.y, c.z, 6, 0.35, 0.35, 0.35, 0);
         level.sendParticles(ParticleTypes.PORTAL, c.x, c.y, c.z, 12, 1.6, 0.8, 1.6, 0.4);
         SpellVfx.spawnHorizontalCircle(level, c, 2.2, 22, SpellVfx.VOID_PURPLE);
@@ -402,7 +575,6 @@ public class ActiveSpellManager {
             }
         }
 
-        // Final gravitational collapse burst!
         if (e.age == e.durationTicks) {
             level.playSound(null, c.x, c.y, c.z, SoundEvents.GENERIC_EXPLODE.value(), SoundSource.PLAYERS, 1.2f, 0.65f);
             level.sendParticles(ParticleTypes.EXPLOSION_EMITTER, c.x, c.y, c.z, 1, 0, 0, 0, 0);
@@ -416,9 +588,6 @@ public class ActiveSpellManager {
         }
     }
 
-    /**
-     * Zero-G Slam: Lifts enemies into zero-gravity for 1 second, then slams them violently into the ground!
-     */
     private static void tickZeroGSlam(ActiveEffect e, ServerPlayer caster) {
         ServerLevel level = e.level;
         Vec3 c = e.center;
@@ -451,9 +620,6 @@ public class ActiveSpellManager {
         }
     }
 
-    /**
-     * Meteor Shower: Drops 5 blazing meteors from sky rifts onto the target area!
-     */
     private static void tickMeteorShower(ActiveEffect e, ServerPlayer caster) {
         ServerLevel level = e.level;
         Vec3 c = e.center;
@@ -472,7 +638,6 @@ public class ActiveSpellManager {
             Vec3 impact = new Vec3(ix, iy, iz);
             Vec3 skyStart = impact.add((rand.nextDouble() - 0.5) * 4.0, 11.0, (rand.nextDouble() - 0.5) * 4.0);
 
-            // Meteor trail
             int steps = 18;
             for (int s = 0; s <= steps; s++) {
                 Vec3 pt = skyStart.lerp(impact, (double) s / steps);
@@ -496,7 +661,10 @@ public class ActiveSpellManager {
         }
     }
 
-    private enum EffectType { BLIZZARD, TEMPEST, STORM_ORB, GRAVITY_WELL, ZERO_G_SLAM, METEOR_SHOWER }
+    private enum EffectType {
+        FLYING_FIREBALL, FIRE_TORNADO, VOID_PORTAL_GATE,
+        BLIZZARD, TEMPEST, STORM_ORB, GRAVITY_WELL, ZERO_G_SLAM, METEOR_SHOWER
+    }
 
     private static class ActiveEffect {
         final EffectType type;
@@ -504,16 +672,18 @@ public class ActiveSpellManager {
         final UUID casterId;
         Vec3 center;
         final Vec3 velocity;
+        final Vec3 facingDir;
         final int durationTicks;
         final float powerMultiplier;
         int age = 0;
 
-        ActiveEffect(EffectType type, ServerLevel level, UUID casterId, Vec3 center, Vec3 velocity, int durationTicks, float powerMultiplier) {
+        ActiveEffect(EffectType type, ServerLevel level, UUID casterId, Vec3 center, Vec3 velocity, Vec3 facingDir, int durationTicks, float powerMultiplier) {
             this.type = type;
             this.level = level;
             this.casterId = casterId;
             this.center = center;
             this.velocity = velocity;
+            this.facingDir = facingDir;
             this.durationTicks = durationTicks;
             this.powerMultiplier = powerMultiplier;
         }

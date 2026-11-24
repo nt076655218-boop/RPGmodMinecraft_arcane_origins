@@ -31,9 +31,7 @@ public class SpellScrollItem extends Item {
         this.spell = spell;
     }
 
-    public ArcaneSpell getSpell() {
-        return spell;
-    }
+    public ArcaneSpell getSpell() { return spell; }
 
     @Override
     public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
@@ -45,11 +43,10 @@ public class SpellScrollItem extends Item {
                 return InteractionResultHolder.fail(stack);
             }
 
-            // ONLY WIZARD can transcribe & learn spells from scrolls!
             if (data.getRpgClass() != RpgClass.WIZARD) {
                 String msg = switch (data.getRpgClass()) {
-                    case WARLOCK -> "Твоя магия даруется Покровителем с уровнем и подношениями, свитки тебе чужды!";
-                    case SORCERER -> "Твоя магия течёт в крови — Чародеи открывают силы с уровнем, а не по книгам!";
+                    case WARLOCK -> "Твоя магия открывается в меню прокачки [G] от Покровителя, свитки тебе чужды!";
+                    case SORCERER -> "Чародеи открывают чары в меню прокачки [G], а не по свиткам!";
                     default -> "Лишь Волшебник способен расшифровать формулы этого свитка!";
                 };
                 sp.displayClientMessage(Component.literal(msg).withStyle(ChatFormatting.RED), true);
@@ -82,9 +79,7 @@ public class SpellScrollItem extends Item {
     }
 
     @Override
-    public boolean isFoil(ItemStack stack) {
-        return true;
-    }
+    public boolean isFoil(ItemStack stack) { return true; }
 
     @Override
     public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltip, TooltipFlag flag) {

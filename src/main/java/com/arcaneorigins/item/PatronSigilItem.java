@@ -24,9 +24,7 @@ import net.minecraft.world.level.Level;
 import java.util.List;
 
 public class PatronSigilItem extends Item {
-    public PatronSigilItem(Properties properties) {
-        super(properties);
-    }
+    public PatronSigilItem(Properties properties) { super(properties); }
 
     @Override
     public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
@@ -55,8 +53,6 @@ public class PatronSigilItem extends Item {
             data.setMana(data.getMana() + favorGain * 2.5f);
             boolean leveledUp = data.addXp(favorGain / 2);
 
-            int favor = data.getPatronFavor();
-            ClassManager.unlockWarlockProgression(sp, data, data.getRpgSubclass(), data.getLevel(), favor);
             if (leveledUp) {
                 ClassManager.onClassLevelUp(sp, data);
             }
@@ -65,7 +61,7 @@ public class PatronSigilItem extends Item {
             SpellVfx.spawnRuneHexagram(sl, sp.position().add(0, 0.2, 0), 2.0, sl.getGameTime() * 0.1, SpellVfx.WARLOCK_VOID);
             sl.playSound(null, sp.getX(), sp.getY(), sp.getZ(), SoundEvents.RESPAWN_ANCHOR_CHARGE, SoundSource.PLAYERS, 1.2f, 0.8f);
 
-            sp.displayClientMessage(Component.literal("Покровитель принял жертву! Благосклонность: " + favor + "/100").withStyle(ChatFormatting.LIGHT_PURPLE), true);
+            sp.displayClientMessage(Component.literal("Покровитель принял жертву! Благосклонность: " + data.getPatronFavor() + "/100").withStyle(ChatFormatting.LIGHT_PURPLE), true);
             ModNetworking.syncToPlayer(sp, false);
         }
         return InteractionResultHolder.sidedSuccess(sigil, level.isClientSide);
@@ -81,13 +77,11 @@ public class PatronSigilItem extends Item {
     }
 
     @Override
-    public boolean isFoil(ItemStack stack) {
-        return true;
-    }
+    public boolean isFoil(ItemStack stack) { return true; }
 
     @Override
     public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltip, TooltipFlag flag) {
         tooltip.add(Component.literal("Сфера Покровителя (реликвия Колдуна).").withStyle(ChatFormatting.LIGHT_PURPLE));
-        tooltip.add(Component.literal("Подноси дары во второй руке (ПКМ) для Маны и даров Покровителя.").withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.literal("Подноси дары во второй руке (ПКМ) для Маны, Опыта и Благосклонности.").withStyle(ChatFormatting.GRAY));
     }
 }

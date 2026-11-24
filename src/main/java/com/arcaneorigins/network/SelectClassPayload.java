@@ -12,15 +12,10 @@ public record SelectClassPayload(String classId, String subclassId) implements C
 
     public static final StreamCodec<FriendlyByteBuf, SelectClassPayload> STREAM_CODEC =
             StreamCodec.of(
-                    (buf, p) -> {
-                        buf.writeUtf(p.classId);
-                        buf.writeUtf(p.subclassId);
-                    },
+                    (buf, p) -> { buf.writeUtf(p.classId); buf.writeUtf(p.subclassId); },
                     buf -> new SelectClassPayload(buf.readUtf(), buf.readUtf())
             );
 
     @Override
-    public Type<? extends CustomPacketPayload> type() {
-        return TYPE;
-    }
+    public Type<? extends CustomPacketPayload> type() { return TYPE; }
 }

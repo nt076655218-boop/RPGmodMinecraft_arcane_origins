@@ -14,7 +14,5 @@ public record CycleSpellPayload(int delta) implements CustomPacketPayload {
             StreamCodec.of((buf, p) -> buf.writeInt(p.delta), buf -> new CycleSpellPayload(buf.readInt()));
 
     @Override
-    public Type<? extends CustomPacketPayload> type() {
-        return TYPE;
-    }
+    public Type<? extends CustomPacketPayload> type() { return TYPE; }
 }

@@ -27,21 +27,25 @@ public class ModCreativeTabs {
                         output.accept(ModItems.SCROLL_GLACIAL_LANCE.get());
                         output.accept(ModItems.SCROLL_FROST_NOVA.get());
                         output.accept(ModItems.SCROLL_GLACIAL_WALL.get());
+                        output.accept(ModItems.SCROLL_FROST_SPIKE_WAVE.get());
                         output.accept(ModItems.SCROLL_BLIZZARD.get());
 
                         output.accept(ModItems.SCROLL_ARC_LIGHTNING.get());
                         output.accept(ModItems.SCROLL_THUNDERSTEP.get());
                         output.accept(ModItems.SCROLL_STORM_ORB.get());
+                        output.accept(ModItems.SCROLL_SHOCKWAVE_NOVA.get());
                         output.accept(ModItems.SCROLL_TEMPEST.get());
 
                         output.accept(ModItems.SCROLL_VOID_RIFT.get());
                         output.accept(ModItems.SCROLL_GRAVITY_WELL.get());
                         output.accept(ModItems.SCROLL_ZERO_G_SLAM.get());
+                        output.accept(ModItems.SCROLL_VOID_PULL.get());
                         output.accept(ModItems.SCROLL_ABYSSAL_METEOR.get());
 
                         output.accept(ModItems.SCROLL_FIREBALL.get());
-                        output.accept(ModItems.SCROLL_FLAME_DASH.get());
-                        output.accept(ModItems.SCROLL_INFERNO_RING.get());
+                        output.accept(ModItems.SCROLL_FIRE_TORNADO.get());
+                        output.accept(ModItems.SCROLL_PLASMA_BLAST.get());
+                        output.accept(ModItems.SCROLL_ERUPTION_PILLARS.get());
                         output.accept(ModItems.SCROLL_METEOR_SHOWER.get());
                     })
                     .build()

@@ -1,6 +1,7 @@
 package com.arcaneorigins.event;
 
 import com.arcaneorigins.classes.ClassManager;
+import com.arcaneorigins.classes.ClassPerk;
 import com.arcaneorigins.classes.RpgClass;
 import com.arcaneorigins.classes.RpgSubclass;
 import com.arcaneorigins.data.ModAttachments;
@@ -18,6 +19,8 @@ import net.minecraft.world.damagesource.DamageTypes;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
 import net.neoforged.neoforge.event.entity.living.LivingFallEvent;
@@ -78,6 +81,7 @@ public class ModEvents {
 
         float regen = rpgClass != null && rpgClass.isCaster() ? 2.6f : 1.0f;
         if (sub == RpgSubclass.ASTRAL) regen *= 1.35f;
+        if (data.hasPerk(ClassPerk.WIZ_SCHOLAR)) regen *= 1.25f;
         if (rpgClass == RpgClass.WARLOCK && data.getPatronFavor() > 0) regen *= 1.25f;
 
         if (data.getMana() < data.getMaxMana()) {
@@ -94,6 +98,16 @@ public class ModEvents {
         } else if (sub == RpgSubclass.PATRON_ELDER) {
             player.addEffect(new MobEffectInstance(MobEffects.NIGHT_VISION, 260, 0, true, false));
         }
+
+        if (data.hasPerk(ClassPerk.WAR_SECOND_WIND) && player.tickCount % 100 == 0 && player.getHealth() < player.getMaxHealth()) {
+            player.heal(1.5f);
+        }
+        if (data.hasPerk(ClassPerk.BARB_UNYIELDING)) {
+            player.removeEffect(MobEffects.MOVEMENT_SLOWDOWN);
+        }
+        if (data.hasPerk(ClassPerk.BARB_TITAN_RAGE)) {
+            player.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 30, 0, true, false));
+        }
     }
 
     @SubscribeEvent
@@ -101,7 +115,15 @@ public class ModEvents {
         if (event.getSource().getEntity() instanceof ServerPlayer killer) {
             PlayerClassData data = killer.getData(ModAttachments.CLASS_DATA);
             if (data.hasChosenClass()) {
-                if (data.addXp(14)) {
+                if (data.hasPerk(ClassPerk.BARB_BLOODLUST)) {
+                    killer.heal(4.0f);
+                    killer.addEffect(new MobEffectInstance(MobEffects.DAMAGE_BOOST, 100, 1));
+                }
+                if (data.hasPerk(ClassPerk.LOCK_SOUL_SIPHON)) {
+                    killer.heal(3.0f);
+                    data.setMana(data.getMana() + 25.0f);
+                }
+                if (data.addXp(16)) {
                     ClassManager.onClassLevelUp(killer, data);
                 }
                 ModNetworking.syncToPlayer(killer, false);
@@ -141,6 +163,23 @@ public class ModEvents {
         if (event.getSource().getEntity() instanceof ServerPlayer attacker && event.getEntity() instanceof LivingEntity victim && victim != attacker) {
             PlayerClassData atkData = attacker.getData(ModAttachments.CLASS_DATA);
             RpgSubclass sub = atkData.getRpgSubclass();
+
+            if (atkData.hasPerk(ClassPerk.WAR_EXECUTIONER) && victim.getHealth() < victim.getMaxHealth() * 0.5f) {
+                event.setAmount(event.getAmount() * 1.35f);
+            }
+
+            if (atkData.hasPerk(ClassPerk.BARB_SEISMIC_SLAM) && attacker.fallDistance > 1.2f && !attacker.onGround()) {
+                ServerLevel sl = attacker.serverLevel();
+                Vec3 c = victim.position();
+                SpellVfx.spawnHorizontalCircle(sl, c.add(0, 0.2, 0), 3.6, 26, SpellVfx.FIRE_ORANGE);
+                sl.playSound(null, c.x, c.y, c.z, SoundEvents.GENERIC_EXPLODE.value(), SoundSource.PLAYERS, 0.8f, 1.3f);
+                for (LivingEntity near : sl.getEntitiesOfClass(LivingEntity.class, new AABB(c.x - 3.8, c.y - 1.0, c.z - 3.8, c.x + 3.8, c.y + 2.5, c.z + 3.8),
+                        e -> e.isAlive() && e != attacker)) {
+                    near.setDeltaMovement(near.getDeltaMovement().add(0, 0.52, 0));
+                    near.hurtMarked = true;
+                }
+            }
+
             if (sub == RpgSubclass.BERSERKER) {
                 attacker.addEffect(new MobEffectInstance(MobEffects.DAMAGE_BOOST, 80, 0));
             } else if (sub == RpgSubclass.THUNDERBREAKER && attacker.getRandom().nextFloat() < 0.35f) {

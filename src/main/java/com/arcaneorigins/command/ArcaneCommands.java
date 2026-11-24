@@ -22,7 +22,7 @@ public class ArcaneCommands {
                                     PlayerClassData data = sp.getData(ModAttachments.CLASS_DATA);
                                     data.setClassId("");
                                     data.setSubclassId("");
-                                    data.clearSpells();
+                                    data.clearProgression();
                                     ClassManager.clearModifiers(sp);
                                     ModNetworking.syncToPlayer(sp, true);
                                     sp.sendSystemMessage(Component.literal("Класс сброшен! Выбери новый путь.").withStyle(ChatFormatting.GOLD));
@@ -35,6 +35,7 @@ public class ArcaneCommands {
                                     PlayerClassData data = sp.getData(ModAttachments.CLASS_DATA);
                                     if (data.getLevel() < PlayerClassData.MAX_LEVEL) {
                                         data.setLevel(data.getLevel() + 1);
+                                        data.addSkillPoints(1);
                                         ClassManager.onClassLevelUp(sp, data);
                                         ModNetworking.syncToPlayer(sp, false);
                                     }
@@ -60,7 +61,7 @@ public class ArcaneCommands {
                                         data.unlockSpell(s);
                                     }
                                     ModNetworking.syncToPlayer(sp, false);
-                                    sp.sendSystemMessage(Component.literal("Все 16 заклинаний изучены!").withStyle(ChatFormatting.AQUA));
+                                    sp.sendSystemMessage(Component.literal("Все 20 заклинаний изучены!").withStyle(ChatFormatting.AQUA));
                                     return 1;
                                 }))
                         .then(Commands.literal("mana")
