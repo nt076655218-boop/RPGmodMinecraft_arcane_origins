@@ -32,6 +32,11 @@ public class MagicFocusItem extends Item {
     }
 
     @Override
+    public boolean isFoil(ItemStack stack) {
+        return true;
+    }
+
+    @Override
     public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltip, TooltipFlag flag) {
         tooltip.add(Component.literal(tooltipLine).withStyle(ChatFormatting.AQUA));
         tooltip.add(Component.literal("ПКМ или [R] — сотворить чары | [V] — сменить заклинание").withStyle(ChatFormatting.GRAY));

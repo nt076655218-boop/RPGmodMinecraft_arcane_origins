@@ -42,7 +42,6 @@ public class ArcaneOriginsClient {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null) return;
 
-        // Auto-open class selection shortly after joining world
         if (ClientClassCache.pendingOpenMenu) {
             openMenuDelay++;
             if (openMenuDelay >= 15 && mc.screen == null) {

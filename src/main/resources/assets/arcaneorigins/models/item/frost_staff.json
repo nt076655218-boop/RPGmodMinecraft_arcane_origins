@@ -2,5 +2,75 @@
   "parent": "minecraft:item/handheld",
   "textures": {
     "layer0": "arcaneorigins:item/frost_staff"
+  },
+  "display": {
+    "thirdperson_righthand": {
+      "rotation": [
+        0,
+        -90,
+        48
+      ],
+      "translation": [
+        0,
+        6.5,
+        1.5
+      ],
+      "scale": [
+        1.45,
+        1.45,
+        0.9
+      ]
+    },
+    "thirdperson_lefthand": {
+      "rotation": [
+        0,
+        90,
+        -48
+      ],
+      "translation": [
+        0,
+        6.5,
+        1.5
+      ],
+      "scale": [
+        1.45,
+        1.45,
+        0.9
+      ]
+    },
+    "firstperson_righthand": {
+      "rotation": [
+        0,
+        -90,
+        32
+      ],
+      "translation": [
+        2.2,
+        4.2,
+        1.0
+      ],
+      "scale": [
+        1.25,
+        1.25,
+        0.85
+      ]
+    },
+    "firstperson_lefthand": {
+      "rotation": [
+        0,
+        90,
+        -32
+      ],
+      "translation": [
+        2.2,
+        4.2,
+        1.0
+      ],
+      "scale": [
+        1.25,
+        1.25,
+        0.85
+      ]
+    }
   }
 }

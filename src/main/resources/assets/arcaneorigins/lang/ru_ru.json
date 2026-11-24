@@ -5,8 +5,14 @@
   "item.arcaneorigins.storm_catalyst": "Грозовой Фокус",
   "item.arcaneorigins.patron_sigil": "Печать Покровителя",
   "item.arcaneorigins.scroll_of_rebirth": "Свиток Перерождения",
+  "item.arcaneorigins.scroll_glacial_lance": "Свиток: Ледяное Копьё",
+  "item.arcaneorigins.scroll_frost_nova": "Свиток: Кольцо Мерзлоты",
+  "item.arcaneorigins.scroll_blizzard": "Свиток: Ледяная Буря",
+  "item.arcaneorigins.scroll_arc_lightning": "Свиток: Дуга Молнии",
+  "item.arcaneorigins.scroll_thunderstep": "Свиток: Грозовой Рывок",
+  "item.arcaneorigins.scroll_tempest": "Свиток: Гнев Небес",
   "key.categories.arcaneorigins": "Arcane Origins",
   "key.arcaneorigins.cast_spell": "Сотворить заклинание",
   "key.arcaneorigins.cycle_spell": "Сменить заклинание",
-  "key.arcaneorigins.open_menu": "Меню класса"
+  "key.arcaneorigins.open_menu": "Меню класса и заклинаний"
 }

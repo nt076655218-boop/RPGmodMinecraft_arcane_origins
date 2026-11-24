@@ -2,8 +2,14 @@ package com.arcaneorigins.data;
 
 import com.arcaneorigins.classes.RpgClass;
 import com.arcaneorigins.classes.RpgSubclass;
+import com.arcaneorigins.spell.ArcaneSpell;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
+
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
 
 public class PlayerClassData {
     public static final int MAX_LEVEL = 10;
@@ -17,8 +23,9 @@ public class PlayerClassData {
             Codec.FLOAT.fieldOf("max_mana").forGetter(PlayerClassData::getMaxMana),
             Codec.INT.fieldOf("level").forGetter(PlayerClassData::getLevel),
             Codec.INT.fieldOf("class_xp").forGetter(PlayerClassData::getClassXp),
-            Codec.INT.fieldOf("selected_spell").forGetter(PlayerClassData::getSelectedSpellIndex),
-            Codec.INT.fieldOf("patron_favor").forGetter(PlayerClassData::getPatronFavor)
+            Codec.STRING.fieldOf("selected_spell_id").forGetter(PlayerClassData::getSelectedSpellId),
+            Codec.INT.fieldOf("patron_favor").forGetter(PlayerClassData::getPatronFavor),
+            Codec.STRING.listOf().optionalFieldOf("unlocked_spells", List.of()).forGetter(PlayerClassData::getUnlockedSpellIds)
     ).apply(instance, PlayerClassData::new));
 
     private String classId;
@@ -29,15 +36,17 @@ public class PlayerClassData {
     private float maxMana;
     private int level;
     private int classXp;
-    private int selectedSpellIndex;
+    private String selectedSpellId;
     private int patronFavor;
+    private final Set<String> unlockedSpells = new LinkedHashSet<>();
 
     public PlayerClassData() {
-        this("", "", false, false, 100.0f, 100.0f, 1, 0, 0, 0);
+        this("", "", false, false, 100.0f, 100.0f, 1, 0, "", 0, List.of());
     }
 
     public PlayerClassData(String classId, String subclassId, boolean sorcererRolled, boolean sorcererUnlocked,
-                           float mana, float maxMana, int level, int classXp, int selectedSpellIndex, int patronFavor) {
+                           float mana, float maxMana, int level, int classXp, String selectedSpellId,
+                           int patronFavor, List<String> unlockedSpellIds) {
         this.classId = classId == null ? "" : classId;
         this.subclassId = subclassId == null ? "" : subclassId;
         this.sorcererRolled = sorcererRolled;
@@ -46,8 +55,15 @@ public class PlayerClassData {
         this.maxMana = Math.max(20.0f, maxMana);
         this.level = Math.max(1, Math.min(MAX_LEVEL, level));
         this.classXp = Math.max(0, classXp);
-        this.selectedSpellIndex = Math.max(0, selectedSpellIndex);
+        this.selectedSpellId = selectedSpellId == null ? "" : selectedSpellId;
         this.patronFavor = Math.max(0, patronFavor);
+        if (unlockedSpellIds != null) {
+            for (String id : unlockedSpellIds) {
+                if (ArcaneSpell.byId(id) != null) {
+                    this.unlockedSpells.add(id);
+                }
+            }
+        }
     }
 
     public boolean hasChosenClass() {
@@ -100,8 +116,66 @@ public class PlayerClassData {
         return leveledUp;
     }
 
-    public int getSelectedSpellIndex() { return selectedSpellIndex; }
-    public void setSelectedSpellIndex(int idx) { this.selectedSpellIndex = idx; }
+    public List<String> getUnlockedSpellIds() {
+        return new ArrayList<>(unlockedSpells);
+    }
+
+    public List<ArcaneSpell> getUnlockedSpells() {
+        List<ArcaneSpell> list = new ArrayList<>();
+        for (String id : unlockedSpells) {
+            ArcaneSpell sp = ArcaneSpell.byId(id);
+            if (sp != null) list.add(sp);
+        }
+        return list;
+    }
+
+    public boolean hasSpellUnlocked(ArcaneSpell spell) {
+        return spell != null && unlockedSpells.contains(spell.getId());
+    }
+
+    public boolean unlockSpell(ArcaneSpell spell) {
+        if (spell == null) return false;
+        boolean added = unlockedSpells.add(spell.getId());
+        if (added && (selectedSpellId.isEmpty() || ArcaneSpell.byId(selectedSpellId) == null)) {
+            selectedSpellId = spell.getId();
+        }
+        return added;
+    }
+
+    public void clearSpells() {
+        unlockedSpells.clear();
+        selectedSpellId = "";
+    }
+
+    public String getSelectedSpellId() {
+        if (!unlockedSpells.isEmpty() && (selectedSpellId.isEmpty() || !unlockedSpells.contains(selectedSpellId))) {
+            selectedSpellId = unlockedSpells.iterator().next();
+        }
+        return selectedSpellId;
+    }
+
+    public void setSelectedSpellId(String id) {
+        this.selectedSpellId = id == null ? "" : id;
+    }
+
+    public ArcaneSpell getSelectedSpell() {
+        List<ArcaneSpell> list = getUnlockedSpells();
+        if (list.isEmpty()) return null;
+        ArcaneSpell current = ArcaneSpell.byId(getSelectedSpellId());
+        return current != null && list.contains(current) ? current : list.get(0);
+    }
+
+    public void cycleSelectedSpell(int delta) {
+        List<ArcaneSpell> list = getUnlockedSpells();
+        if (list.isEmpty()) {
+            selectedSpellId = "";
+            return;
+        }
+        ArcaneSpell cur = getSelectedSpell();
+        int idx = cur == null ? 0 : list.indexOf(cur);
+        int next = ((idx + delta) % list.size() + list.size()) % list.size();
+        selectedSpellId = list.get(next).getId();
+    }
 
     public int getPatronFavor() { return patronFavor; }
     public void setPatronFavor(int patronFavor) { this.patronFavor = Math.max(0, Math.min(100, patronFavor)); }

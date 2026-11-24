@@ -17,7 +17,7 @@ import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 
 public class ModNetworking {
     public static void registerPayloads(final RegisterPayloadHandlersEvent event) {
-        PayloadRegistrar registrar = event.registrar("1");
+        PayloadRegistrar registrar = event.registrar("2");
 
         registrar.playToClient(
                 SyncClassDataPayload.TYPE,
@@ -70,15 +70,20 @@ public class ModNetworking {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer sp) {
                 PlayerClassData data = sp.getData(ModAttachments.CLASS_DATA);
-                int total = ArcaneSpell.values().length;
-                int next = ((data.getSelectedSpellIndex() + payload.delta()) % total + total) % total;
-                data.setSelectedSpellIndex(next);
-                ArcaneSpell spell = ArcaneSpell.byIndex(next);
-                sp.displayClientMessage(Component.literal("Заклинание: " + spell.getDisplayName()
-                        + " [" + spell.getSchool().getDisplayName() + "] (" + (int) spell.getManaCost() + " маны)")
-                        .withStyle(ChatFormatting.AQUA), true);
-                sp.serverLevel().playSound(null, sp.getX(), sp.getY(), sp.getZ(),
-                        SoundEvents.EXPERIENCE_ORB_PICKUP, SoundSource.PLAYERS, 0.4f, 1.5f);
+                if (data.getUnlockedSpells().isEmpty()) {
+                    sp.displayClientMessage(Component.literal("Нет изученных заклинаний! Найди или скрафти Свиток Заклинания.")
+                            .withStyle(ChatFormatting.YELLOW), true);
+                    return;
+                }
+                data.cycleSelectedSpell(payload.delta());
+                ArcaneSpell spell = data.getSelectedSpell();
+                if (spell != null) {
+                    sp.displayClientMessage(Component.literal("Заклинание: " + spell.getDisplayName()
+                            + " [" + spell.getSchool().getDisplayName() + "] (" + (int) spell.getManaCost() + " маны)")
+                            .withStyle(ChatFormatting.AQUA), true);
+                    sp.serverLevel().playSound(null, sp.getX(), sp.getY(), sp.getZ(),
+                            SoundEvents.EXPERIENCE_ORB_PICKUP, SoundSource.PLAYERS, 0.4f, 1.5f);
+                }
                 syncToPlayer(sp, false);
             }
         });

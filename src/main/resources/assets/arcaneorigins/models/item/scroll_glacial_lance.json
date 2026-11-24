@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "arcaneorigins:item/scroll_glacial_lance"
+  }
+}

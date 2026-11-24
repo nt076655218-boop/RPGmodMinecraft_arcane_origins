@@ -4,6 +4,9 @@ import com.arcaneorigins.classes.RpgClass;
 import com.arcaneorigins.classes.RpgSubclass;
 import com.arcaneorigins.spell.ArcaneSpell;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class ClientClassCache {
     public static String classId = "";
     public static String subclassId = "";
@@ -12,8 +15,9 @@ public class ClientClassCache {
     public static float maxMana = 100.0f;
     public static int level = 1;
     public static int classXp = 0;
-    public static int selectedSpellIndex = 0;
+    public static String selectedSpellId = "";
     public static int patronFavor = 0;
+    public static List<String> unlockedSpells = new ArrayList<>();
     public static boolean pendingOpenMenu = false;
 
     public static void update(SyncClassDataPayload p) {
@@ -24,8 +28,9 @@ public class ClientClassCache {
         maxMana = Math.max(1.0f, p.maxMana());
         level = p.level();
         classXp = p.classXp();
-        selectedSpellIndex = p.selectedSpellIndex();
+        selectedSpellId = p.selectedSpellId();
         patronFavor = p.patronFavor();
+        unlockedSpells = new ArrayList<>(p.unlockedSpells());
         if (p.openMenu()) {
             pendingOpenMenu = true;
         }
@@ -37,5 +42,11 @@ public class ClientClassCache {
 
     public static RpgClass getRpgClass() { return RpgClass.byId(classId); }
     public static RpgSubclass getRpgSubclass() { return RpgSubclass.byId(subclassId); }
-    public static ArcaneSpell getSelectedSpell() { return ArcaneSpell.byIndex(selectedSpellIndex); }
+
+    public static ArcaneSpell getSelectedSpell() {
+        if (unlockedSpells.isEmpty()) return null;
+        ArcaneSpell sp = ArcaneSpell.byId(selectedSpellId);
+        if (sp != null && unlockedSpells.contains(sp.getId())) return sp;
+        return ArcaneSpell.byId(unlockedSpells.get(0));
+    }
 }

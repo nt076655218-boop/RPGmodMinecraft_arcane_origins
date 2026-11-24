@@ -5,8 +5,14 @@
   "item.arcaneorigins.storm_catalyst": "Storm Catalyst",
   "item.arcaneorigins.patron_sigil": "Patron's Sigil",
   "item.arcaneorigins.scroll_of_rebirth": "Scroll of Rebirth",
+  "item.arcaneorigins.scroll_glacial_lance": "Scroll: Glacial Lance",
+  "item.arcaneorigins.scroll_frost_nova": "Scroll: Frost Nova",
+  "item.arcaneorigins.scroll_blizzard": "Scroll: Blizzard Tempest",
+  "item.arcaneorigins.scroll_arc_lightning": "Scroll: Arc Lightning",
+  "item.arcaneorigins.scroll_thunderstep": "Scroll: Thunderstep",
+  "item.arcaneorigins.scroll_tempest": "Scroll: Tempest Judgment",
   "key.categories.arcaneorigins": "Arcane Origins",
   "key.arcaneorigins.cast_spell": "Cast Selected Spell",
   "key.arcaneorigins.cycle_spell": "Cycle Active Spell",
-  "key.arcaneorigins.open_menu": "Open Class Menu"
+  "key.arcaneorigins.open_menu": "Open Class & Spells Menu"
 }

@@ -7,6 +7,9 @@ import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public record SyncClassDataPayload(
         String classId,
         String subclassId,
@@ -15,8 +18,9 @@ public record SyncClassDataPayload(
         float maxMana,
         int level,
         int classXp,
-        int selectedSpellIndex,
+        String selectedSpellId,
         int patronFavor,
+        List<String> unlockedSpells,
         boolean openMenu
 ) implements CustomPacketPayload {
 
@@ -35,8 +39,9 @@ public record SyncClassDataPayload(
                 data.getMaxMana(),
                 data.getLevel(),
                 data.getClassXp(),
-                data.getSelectedSpellIndex(),
+                data.getSelectedSpellId(),
                 data.getPatronFavor(),
+                data.getUnlockedSpellIds(),
                 openMenu
         );
     }
@@ -49,24 +54,33 @@ public record SyncClassDataPayload(
         buf.writeFloat(p.maxMana);
         buf.writeInt(p.level);
         buf.writeInt(p.classXp);
-        buf.writeInt(p.selectedSpellIndex);
+        buf.writeUtf(p.selectedSpellId);
         buf.writeInt(p.patronFavor);
+        buf.writeInt(p.unlockedSpells.size());
+        for (String id : p.unlockedSpells) {
+            buf.writeUtf(id);
+        }
         buf.writeBoolean(p.openMenu);
     }
 
     private static SyncClassDataPayload decode(FriendlyByteBuf buf) {
-        return new SyncClassDataPayload(
-                buf.readUtf(),
-                buf.readUtf(),
-                buf.readBoolean(),
-                buf.readFloat(),
-                buf.readFloat(),
-                buf.readInt(),
-                buf.readInt(),
-                buf.readInt(),
-                buf.readInt(),
-                buf.readBoolean()
-        );
+        String classId = buf.readUtf();
+        String subclassId = buf.readUtf();
+        boolean sorcererUnlocked = buf.readBoolean();
+        float mana = buf.readFloat();
+        float maxMana = buf.readFloat();
+        int level = buf.readInt();
+        int classXp = buf.readInt();
+        String selectedSpellId = buf.readUtf();
+        int patronFavor = buf.readInt();
+        int count = buf.readInt();
+        List<String> spells = new ArrayList<>(Math.max(0, count));
+        for (int i = 0; i < count; i++) {
+            spells.add(buf.readUtf());
+        }
+        boolean openMenu = buf.readBoolean();
+        return new SyncClassDataPayload(classId, subclassId, sorcererUnlocked, mana, maxMana,
+                level, classXp, selectedSpellId, patronFavor, spells, openMenu);
     }
 
     @Override

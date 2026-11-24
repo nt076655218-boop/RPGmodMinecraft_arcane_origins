@@ -18,6 +18,7 @@ import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.phys.AABB;
@@ -28,7 +29,6 @@ import net.minecraft.world.phys.Vec3;
 import java.util.*;
 
 public class SpellExecutor {
-    // Cooldown map: playerUUID -> (spell -> expireGameTick)
     private static final Map<UUID, Map<ArcaneSpell, Long>> COOLDOWNS = new HashMap<>();
 
     public static void tryCastSelectedSpell(ServerPlayer player) {
@@ -38,10 +38,16 @@ public class SpellExecutor {
             return;
         }
 
+        ArcaneSpell spell = data.getSelectedSpell();
+        if (spell == null) {
+            player.displayClientMessage(Component.literal("У тебя пока нет изученных заклинаний! Найди или скрафти Свиток Заклинания.").withStyle(ChatFormatting.GOLD), true);
+            return;
+        }
+
         RpgClass rpgClass = data.getRpgClass();
         RpgSubclass subclass = data.getRpgSubclass();
 
-        // Check caster eligibility & equipment rules!
+        // Equipment & Class casting rules
         boolean hasBookOrCatalyst = isHoldingMagicGear(player);
         if (rpgClass == RpgClass.WARRIOR || rpgClass == RpgClass.BARBARIAN) {
             if (!hasBookOrCatalyst) {
@@ -49,21 +55,18 @@ public class SpellExecutor {
                 return;
             }
         } else if (rpgClass == RpgClass.WIZARD) {
-            // Wizard NEEDS a Spellbook or Staff/Catalyst
             if (!hasBookOrCatalyst) {
                 player.displayClientMessage(Component.literal("Волшебнику нужна Книга Заклинаний или Посох в руке!").withStyle(ChatFormatting.AQUA), true);
                 return;
             }
         } else if (rpgClass == RpgClass.WARLOCK) {
-            // Warlock uses Patron favor or Sigil/Book
             if (data.getPatronFavor() <= 0 && !hasBookOrCatalyst && !isHoldingPatronSigil(player)) {
                 player.displayClientMessage(Component.literal("Принеси подношение Покровителю Печатью или возьми фокус!").withStyle(ChatFormatting.LIGHT_PURPLE), true);
                 return;
             }
         }
-        // SORCERER needs NOTHING — innate magic!
+        // SORCERER casts innately without any gear!
 
-        ArcaneSpell spell = ArcaneSpell.byIndex(data.getSelectedSpellIndex());
         ServerLevel level = player.serverLevel();
         long now = level.getGameTime();
 
@@ -75,9 +78,8 @@ public class SpellExecutor {
             return;
         }
 
-        // Compute Mana Cost & Power Multiplier
         float cost = spell.getManaCost();
-        float power = 1.0f + (data.getLevel() - 1) * 0.08f; // +8% per class level
+        float power = 1.0f + (data.getLevel() - 1) * 0.08f;
         float cdFactor = 1.0f;
 
         if (subclass == RpgSubclass.SCHOOL_ICE && spell.getSchool() == SpellSchool.ICE) {
@@ -90,7 +92,6 @@ public class SpellExecutor {
             cost *= 0.75f;
         }
 
-        // Equipment catalyst bonuses
         if (isHoldingItem(player, ModItems.FROST_STAFF.get()) && spell.getSchool() == SpellSchool.ICE) {
             power *= 1.20f;
             cdFactor *= 0.85f;
@@ -100,7 +101,6 @@ public class SpellExecutor {
             cdFactor *= 0.85f;
         }
 
-        // Warlock Patron Favor boosts damage & consumes 5 favor
         if (rpgClass == RpgClass.WARLOCK && data.getPatronFavor() >= 5) {
             power *= 1.25f;
             data.addPatronFavor(-5);
@@ -111,14 +111,12 @@ public class SpellExecutor {
             return;
         }
 
-        // Spend mana & set cooldown
         if (!player.isCreative()) {
             data.setMana(data.getMana() - cost);
         }
         int finalCd = Math.max(8, (int) (spell.getCooldownTicks() * cdFactor));
         playerCds.put(spell, now + finalCd);
 
-        // Execute spell!
         switch (spell) {
             case GLACIAL_LANCE -> castGlacialLance(level, player, power);
             case FROST_NOVA -> castFrostNova(level, player, power);
@@ -128,16 +126,12 @@ public class SpellExecutor {
             case TEMPEST_JUDGMENT -> castTempestJudgment(level, player, power);
         }
 
-        // Wild Magic Sorcerer surge (20% chance!)
         if (subclass == RpgSubclass.WILD_MAGIC && level.getRandom().nextFloat() < 0.20f) {
             triggerWildMagicSurge(level, player, data, cost);
         }
 
-        // Award class XP
         if (data.addXp(10)) {
-            ClassManager.applyPassives(player);
-            player.sendSystemMessage(Component.literal("★ Уровень класса повышен до " + data.getLevel() + "!").withStyle(ChatFormatting.GOLD));
-            level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 0.9f, 1.2f);
+            ClassManager.onClassLevelUp(player, data);
         }
 
         ModNetworking.syncToPlayer(player, false);
@@ -152,15 +146,13 @@ public class SpellExecutor {
                 ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, player));
         Vec3 end = blockHit.getType() == HitResult.Type.MISS ? eye.add(look.scale(maxDist)) : blockHit.getLocation();
 
-        // Caster hand circle + double helix beam
-        SpellVfx.spawnHorizontalCircle(level, player.position().add(0, 0.15, 0), 1.2, 16, SpellVfx.ICE_CORE);
+        SpellVfx.spawnHorizontalCircle(level, player.position().add(0, 0.15, 0), 1.3, 18, SpellVfx.ICE_CORE);
         SpellVfx.spawnDoubleHelixBeam(level, eye.add(look.scale(0.8)), end, 0.45, 4.5);
         SpellVfx.spawnCrystalBurst(level, end, 1.8);
 
         level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.GLASS_BREAK, SoundSource.PLAYERS, 0.9f, 1.6f);
         level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.PLAYERS, 1.2f, 1.3f);
 
-        // Hit all living entities along the lance path
         double dist = eye.distanceTo(end);
         AABB searchBox = player.getBoundingBox().expandTowards(look.scale(dist)).inflate(1.5);
         for (LivingEntity target : level.getEntitiesOfClass(LivingEntity.class, searchBox, e -> e.isAlive() && e != player)) {
@@ -170,8 +162,8 @@ public class SpellExecutor {
                 Vec3 closest = eye.add(look.scale(proj));
                 if (closest.distanceTo(target.getBoundingBox().getCenter()) < 1.35) {
                     target.hurt(level.damageSources().freeze(), 9.0f * power);
-                    target.setTicksFrozen(220);
-                    target.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 80, 2));
+                    // Encase enemy in solid ice blocks for 3.5 seconds!
+                    ActiveSpellManager.freezeEntityInIce(level, target, 70);
                     SpellVfx.spawnCrystalBurst(level, target.getBoundingBox().getCenter(), 1.6);
                     onSpellHitTarget(player, target);
                 }
@@ -181,12 +173,12 @@ public class SpellExecutor {
 
     private static void castFrostNova(ServerLevel level, ServerPlayer player, float power) {
         Vec3 c = player.position();
-        SpellVfx.spawnRuneHexagram(level, c.add(0, 0.15, 0), 3.0, 0.0, SpellVfx.ICE_CORE);
+        SpellVfx.spawnRuneHexagram(level, c.add(0, 0.15, 0), 3.2, 0.0, SpellVfx.ICE_CORE);
         for (double r : new double[]{2.5, 4.5, 6.5}) {
             SpellVfx.spawnHorizontalCircle(level, c.add(0, 0.3, 0), r, (int) (r * 9), SpellVfx.ICE_DEEP);
             SpellVfx.spawnHorizontalCircle(level, c.add(0, 1.1, 0), r * 0.85, (int) (r * 6), ParticleTypes.SNOWFLAKE);
         }
-        level.sendParticles(ParticleTypes.CLOUD, c.x, c.y + 0.5, c.z, 35, 2.5, 0.4, 2.5, 0.08);
+        level.sendParticles(SpellVfx.BLUE_ICE_SHARDS, c.x, c.y + 0.7, c.z, 40, 2.8, 0.5, 2.8, 0.12);
 
         level.playSound(null, c.x, c.y, c.z, SoundEvents.PLAYER_HURT_FREEZE, SoundSource.PLAYERS, 1.3f, 0.7f);
         level.playSound(null, c.x, c.y, c.z, SoundEvents.GLASS_BREAK, SoundSource.PLAYERS, 1.2f, 0.8f);
@@ -195,20 +187,17 @@ public class SpellExecutor {
         for (LivingEntity target : level.getEntitiesOfClass(LivingEntity.class, box, e -> e.isAlive() && e != player)) {
             if (target.distanceTo(player) <= 6.8) {
                 target.hurt(level.damageSources().freeze(), 7.5f * power);
-                target.setTicksFrozen(300);
-                target.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 100, 4));
-                Vec3 push = target.position().subtract(c).normalize().scale(0.85);
-                target.setDeltaMovement(push.x, 0.32, push.z);
-                target.hurtMarked = true;
+                // Freeze every caught enemy in ice blocks for 4.5 seconds!
+                ActiveSpellManager.freezeEntityInIce(level, target, 90);
                 onSpellHitTarget(player, target);
             }
         }
     }
 
     private static void castBlizzardTempest(ServerLevel level, ServerPlayer player, float power) {
-        Vec3 targetPos = findLookTargetPosition(level, player, 20.0);
-        ActiveSpellManager.addBlizzard(level, player.getUUID(), targetPos, power);
-        level.playSound(null, targetPos.x, targetPos.y, targetPos.z, SoundEvents.BEACON_ACTIVATE, SoundSource.PLAYERS, 1.0f, 1.5f);
+        Vec3 groundedPos = SpellVfx.findGroundedTargetPosition(level, player, 22.0);
+        ActiveSpellManager.addBlizzard(level, player.getUUID(), groundedPos, power);
+        level.playSound(null, groundedPos.x, groundedPos.y, groundedPos.z, SoundEvents.BEACON_ACTIVATE, SoundSource.PLAYERS, 1.0f, 1.5f);
     }
 
     private static void castArcLightning(ServerLevel level, ServerPlayer player, float power) {
@@ -216,7 +205,6 @@ public class SpellExecutor {
         Vec3 look = player.getLookAngle().normalize();
         double range = 24.0;
 
-        // Find primary target near crosshair
         LivingEntity primary = null;
         double bestScore = Double.MAX_VALUE;
         AABB box = player.getBoundingBox().expandTowards(look.scale(range)).inflate(2.5);
@@ -237,12 +225,12 @@ public class SpellExecutor {
         level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.TRIDENT_THUNDER, SoundSource.PLAYERS, 0.9f, 1.6f);
 
         if (primary == null) {
-            Vec3 end = findLookTargetPosition(level, player, range);
+            BlockHitResult hit = level.clip(new ClipContext(eye, eye.add(look.scale(range)), ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, player));
+            Vec3 end = hit.getType() == HitResult.Type.MISS ? eye.add(look.scale(range)) : hit.getLocation();
             SpellVfx.spawnJaggedLightningArc(level, eye.add(look.scale(0.7)), end, 9, 0.55);
             return;
         }
 
-        // Chain lightning up to 4 targets!
         Set<UUID> hitIds = new HashSet<>();
         LivingEntity current = primary;
         Vec3 prevPos = eye.add(look.scale(0.6));
@@ -255,7 +243,6 @@ public class SpellExecutor {
             onSpellHitTarget(player, current);
             hitIds.add(current.getUUID());
 
-            // Find next closest unhit enemy within 8 blocks
             final Vec3 anchor = curPos;
             LivingEntity next = level.getEntitiesOfClass(LivingEntity.class,
                             current.getBoundingBox().inflate(8.0),
@@ -282,20 +269,17 @@ public class SpellExecutor {
                 ? player.position().add(look.scale(maxDist))
                 : hit.getLocation().subtract(look.scale(1.1));
 
-        // Keep feet safe if destination is inside solid block
         BlockPos destPos = BlockPos.containing(dest);
         if (!level.getBlockState(destPos).getCollisionShape(level, destPos).isEmpty()) {
             dest = dest.add(0, 1.0, 0);
         }
 
-        // Departure spark & trail lightning
         SpellVfx.spawnHorizontalCircle(level, start, 1.6, 20, ParticleTypes.ELECTRIC_SPARK);
         SpellVfx.spawnJaggedLightningArc(level, start, dest.add(0, 1.0, 0), 8, 0.65);
 
         player.teleportTo(dest.x, dest.y, dest.z);
         player.fallDistance = 0.0f;
 
-        // Arrival thunder shockwave
         SpellVfx.spawnHorizontalCircle(level, dest.add(0, 0.3, 0), 3.6, 28, SpellVfx.LIGHTNING_CORE);
         SpellVfx.spawnHorizontalCircle(level, dest.add(0, 0.7, 0), 2.2, 20, ParticleTypes.ELECTRIC_SPARK);
         level.playSound(null, dest.x, dest.y, dest.z, SoundEvents.LIGHTNING_BOLT_THUNDER, SoundSource.PLAYERS, 1.1f, 1.4f);
@@ -310,9 +294,9 @@ public class SpellExecutor {
     }
 
     private static void castTempestJudgment(ServerLevel level, ServerPlayer player, float power) {
-        Vec3 targetPos = findLookTargetPosition(level, player, 24.0);
-        ActiveSpellManager.addTempest(level, player.getUUID(), targetPos, power);
-        level.playSound(null, targetPos.x, targetPos.y, targetPos.z, SoundEvents.LIGHTNING_BOLT_THUNDER, SoundSource.PLAYERS, 1.0f, 0.75f);
+        Vec3 groundedPos = SpellVfx.findGroundedTargetPosition(level, player, 24.0);
+        ActiveSpellManager.addTempest(level, player.getUUID(), groundedPos, power);
+        level.playSound(null, groundedPos.x, groundedPos.y, groundedPos.z, SoundEvents.LIGHTNING_BOLT_THUNDER, SoundSource.PLAYERS, 1.0f, 0.75f);
     }
 
     private static void triggerWildMagicSurge(ServerLevel level, ServerPlayer player, PlayerClassData data, float cost) {
@@ -349,13 +333,6 @@ public class SpellExecutor {
         }
     }
 
-    private static Vec3 findLookTargetPosition(ServerLevel level, ServerPlayer player, double maxDist) {
-        Vec3 eye = player.getEyePosition();
-        Vec3 end = eye.add(player.getLookAngle().scale(maxDist));
-        BlockHitResult hit = level.clip(new ClipContext(eye, end, ClipContext.Block.OUTLINE, ClipContext.Fluid.NONE, player));
-        return hit.getType() == HitResult.Type.MISS ? end : hit.getLocation();
-    }
-
     public static boolean isHoldingMagicGear(ServerPlayer player) {
         return isHoldingItem(player, ModItems.ARCANE_SPELLBOOK.get())
                 || isHoldingItem(player, ModItems.FROST_STAFF.get())
@@ -366,7 +343,7 @@ public class SpellExecutor {
         return isHoldingItem(player, ModItems.PATRON_SIGIL.get());
     }
 
-    private static boolean isHoldingItem(ServerPlayer player, net.minecraft.world.item.Item item) {
+    private static boolean isHoldingItem(ServerPlayer player, Item item) {
         ItemStack main = player.getMainHandItem();
         ItemStack off = player.getOffhandItem();
         return main.is(item) || off.is(item);

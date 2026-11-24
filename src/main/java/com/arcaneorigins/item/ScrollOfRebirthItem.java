@@ -31,6 +31,7 @@ public class ScrollOfRebirthItem extends Item {
             PlayerClassData data = sp.getData(ModAttachments.CLASS_DATA);
             data.setClassId("");
             data.setSubclassId("");
+            data.clearSpells();
             ClassManager.clearModifiers(sp);
             if (!sp.isCreative()) {
                 stack.shrink(1);

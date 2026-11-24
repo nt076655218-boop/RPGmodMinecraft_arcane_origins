@@ -32,7 +32,6 @@ public class ModEvents {
 
         PlayerClassData data = player.getData(ModAttachments.CLASS_DATA);
 
-        // One-time 10% roll for the rare Sorcerer class on first world join!
         if (!data.isSorcererRolled()) {
             data.setSorcererRolled(true);
             boolean lucky = player.getRandom().nextFloat() < 0.10f;
@@ -67,7 +66,7 @@ public class ModEvents {
     @SubscribeEvent
     public static void onPlayerTick(PlayerTickEvent.Post event) {
         if (!(event.getEntity() instanceof ServerPlayer player)) return;
-        if (player.tickCount % 10 != 0) return; // Every 0.5 seconds
+        if (player.tickCount % 10 != 0) return;
 
         PlayerClassData data = player.getData(ModAttachments.CLASS_DATA);
         if (!data.hasChosenClass()) return;
@@ -75,7 +74,6 @@ public class ModEvents {
         RpgClass rpgClass = data.getRpgClass();
         RpgSubclass sub = data.getRpgSubclass();
 
-        // Mana regeneration
         float regen = rpgClass != null && rpgClass.isCaster() ? 2.6f : 1.0f;
         if (sub == RpgSubclass.ASTRAL) regen *= 1.35f;
         if (rpgClass == RpgClass.WARLOCK && data.getPatronFavor() > 0) regen *= 1.25f;
@@ -85,7 +83,6 @@ public class ModEvents {
             ModNetworking.syncToPlayer(player, false);
         }
 
-        // Ongoing subclass passive effects
         if (sub == RpgSubclass.SCHOOL_ICE) {
             player.setTicksFrozen(0);
         } else if (sub == RpgSubclass.PATRON_INFERNO) {
@@ -107,7 +104,6 @@ public class ModEvents {
 
     @SubscribeEvent
     public static void onIncomingDamage(LivingIncomingDamageEvent event) {
-        // Defender passives
         if (event.getEntity() instanceof ServerPlayer defender) {
             PlayerClassData defData = defender.getData(ModAttachments.CLASS_DATA);
             RpgSubclass sub = defData.getRpgSubclass();
@@ -119,7 +115,6 @@ public class ModEvents {
             }
         }
 
-        // Attacker passives
         if (event.getSource().getEntity() instanceof ServerPlayer attacker && event.getEntity() instanceof LivingEntity victim && victim != attacker) {
             PlayerClassData atkData = attacker.getData(ModAttachments.CLASS_DATA);
             RpgSubclass sub = atkData.getRpgSubclass();

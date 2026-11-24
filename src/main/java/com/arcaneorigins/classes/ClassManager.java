@@ -5,6 +5,7 @@ import com.arcaneorigins.data.ModAttachments;
 import com.arcaneorigins.data.PlayerClassData;
 import com.arcaneorigins.item.ModItems;
 import com.arcaneorigins.network.ModNetworking;
+import com.arcaneorigins.spell.ArcaneSpell;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.Holder;
 import net.minecraft.network.chat.Component;
@@ -32,23 +33,41 @@ public class ClassManager {
         if (rpgClass == null || subclass == null || subclass.getParent() != rpgClass) return;
 
         PlayerClassData data = player.getData(ModAttachments.CLASS_DATA);
-        if (data.hasChosenClass()) return; // Prevent switching without Scroll of Rebirth / command
+        if (data.hasChosenClass()) return;
         if (rpgClass == RpgClass.SORCERER && !data.isSorcererUnlocked()) return;
 
         data.setClassId(rpgClass.getId());
         data.setSubclassId(subclass.getId());
         data.setLevel(1);
         data.setClassXp(0);
+        data.clearSpells();
 
         applyPassives(player);
         data.setMana(data.getMaxMana());
 
-        // Give class-appropriate starter gear
+        // Starting spells & class gear — NO ALL-SPELLS-UNLOCKED CHEAT!
         if (rpgClass == RpgClass.WIZARD) {
             giveIfMissing(player, new ItemStack(ModItems.ARCANE_SPELLBOOK.get()));
+            if (subclass == RpgSubclass.SCHOOL_ICE) {
+                data.unlockSpell(ArcaneSpell.GLACIAL_LANCE);
+                giveIfMissing(player, new ItemStack(ModItems.SCROLL_FROST_NOVA.get()));
+            } else {
+                data.unlockSpell(ArcaneSpell.ARC_LIGHTNING);
+                giveIfMissing(player, new ItemStack(ModItems.SCROLL_THUNDERSTEP.get()));
+            }
+            player.sendSystemMessage(Component.literal("Подсказка: используй Свитки Заклинаний (ПКМ), чтобы вписать новые чары в память!")
+                    .withStyle(ChatFormatting.AQUA));
         } else if (rpgClass == RpgClass.WARLOCK) {
             giveIfMissing(player, new ItemStack(ModItems.PATRON_SIGIL.get()));
             data.setPatronFavor(25);
+            data.unlockSpell(ArcaneSpell.ARC_LIGHTNING);
+            player.sendSystemMessage(Component.literal("Покровитель даровал вам первое заклинание. Подносите дары через Печать, чтобы открыть новые!")
+                    .withStyle(ChatFormatting.LIGHT_PURPLE));
+        } else if (rpgClass == RpgClass.SORCERER) {
+            data.unlockSpell(ArcaneSpell.GLACIAL_LANCE);
+            data.unlockSpell(ArcaneSpell.ARC_LIGHTNING);
+            player.sendSystemMessage(Component.literal("Врождённая магия пробудилась! Новые заклинания откроются с ростом уровня класса.")
+                    .withStyle(ChatFormatting.GOLD));
         }
 
         player.setHealth(player.getMaxHealth());
@@ -59,6 +78,36 @@ public class ClassManager {
                 SoundEvents.UI_TOAST_CHALLENGE_COMPLETE, SoundSource.PLAYERS, 0.8f, 1.1f);
 
         ModNetworking.syncToPlayer(player, false);
+    }
+
+    public static void onClassLevelUp(ServerPlayer player, PlayerClassData data) {
+        applyPassives(player);
+        int lvl = data.getLevel();
+        RpgClass rpgClass = data.getRpgClass();
+
+        player.sendSystemMessage(Component.literal("★ Уровень класса повышен до " + lvl + "!").withStyle(ChatFormatting.GOLD));
+        player.serverLevel().playSound(null, player.getX(), player.getY(), player.getZ(),
+                SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 0.9f, 1.2f);
+
+        // Sorcerer innately awakens higher-tier spells as they level up
+        if (rpgClass == RpgClass.SORCERER) {
+            if (lvl >= 2) {
+                tryAnnounceSpellUnlock(player, data, ArcaneSpell.FROST_NOVA);
+                tryAnnounceSpellUnlock(player, data, ArcaneSpell.THUNDERSTEP);
+            }
+            if (lvl >= 4) {
+                tryAnnounceSpellUnlock(player, data, ArcaneSpell.BLIZZARD_TEMPEST);
+                tryAnnounceSpellUnlock(player, data, ArcaneSpell.TEMPEST_JUDGMENT);
+            }
+        }
+    }
+
+    public static void tryAnnounceSpellUnlock(ServerPlayer player, PlayerClassData data, ArcaneSpell spell) {
+        if (data.unlockSpell(spell)) {
+            player.sendSystemMessage(Component.literal("✦ Открыто новое заклинание: ")
+                    .withStyle(ChatFormatting.AQUA)
+                    .append(Component.literal(spell.getDisplayName()).withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD)));
+        }
     }
 
     public static void applyPassives(ServerPlayer player) {
@@ -96,30 +145,20 @@ public class ClassManager {
                 setModifier(player, Attributes.MOVEMENT_SPEED, MOD_SPEED, 0.15, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
                 setModifier(player, Attributes.ATTACK_DAMAGE, MOD_ATK, 1.5 + lvlBonus * 0.25, AttributeModifier.Operation.ADD_VALUE);
             }
-            case SCHOOL_ICE -> {
-                maxMana *= 1.15f;
-            }
+            case SCHOOL_ICE -> maxMana *= 1.15f;
             case SCHOOL_LIGHTNING -> {
                 maxMana *= 1.15f;
                 setModifier(player, Attributes.MOVEMENT_SPEED, MOD_SPEED, 0.12, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
             }
-            case PATRON_ABYSS -> {
-                maxMana *= 1.20f;
-            }
-            case PATRON_ELDER -> {
-                maxMana *= 1.10f;
-            }
-            case PATRON_INFERNO -> {
-                setModifier(player, Attributes.ATTACK_DAMAGE, MOD_ATK, 2.0, AttributeModifier.Operation.ADD_VALUE);
-            }
+            case PATRON_ABYSS -> maxMana *= 1.20f;
+            case PATRON_ELDER -> maxMana *= 1.10f;
+            case PATRON_INFERNO -> setModifier(player, Attributes.ATTACK_DAMAGE, MOD_ATK, 2.0, AttributeModifier.Operation.ADD_VALUE);
             case DRACONIC -> {
                 setModifier(player, Attributes.ARMOR, MOD_ARMOR, 4.0, AttributeModifier.Operation.ADD_VALUE);
                 setModifier(player, Attributes.MAX_HEALTH, MOD_HP, 4.0, AttributeModifier.Operation.ADD_VALUE);
                 maxMana *= 1.20f;
             }
-            case WILD_MAGIC -> {
-                maxMana *= 1.10f;
-            }
+            case WILD_MAGIC -> maxMana *= 1.10f;
             case ASTRAL -> {
                 setModifier(player, Attributes.MOVEMENT_SPEED, MOD_SPEED, 0.15, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
                 maxMana *= 1.15f;

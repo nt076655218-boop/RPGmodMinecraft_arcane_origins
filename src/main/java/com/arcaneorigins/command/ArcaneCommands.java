@@ -4,6 +4,7 @@ import com.arcaneorigins.classes.ClassManager;
 import com.arcaneorigins.data.ModAttachments;
 import com.arcaneorigins.data.PlayerClassData;
 import com.arcaneorigins.network.ModNetworking;
+import com.arcaneorigins.spell.ArcaneSpell;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
@@ -21,6 +22,7 @@ public class ArcaneCommands {
                                     PlayerClassData data = sp.getData(ModAttachments.CLASS_DATA);
                                     data.setClassId("");
                                     data.setSubclassId("");
+                                    data.clearSpells();
                                     ClassManager.clearModifiers(sp);
                                     ModNetworking.syncToPlayer(sp, true);
                                     sp.sendSystemMessage(Component.literal("Класс сброшен! Выбери новый путь.").withStyle(ChatFormatting.GOLD));
@@ -35,6 +37,18 @@ public class ArcaneCommands {
                                     data.setSorcererUnlocked(true);
                                     ModNetworking.syncToPlayer(sp, !data.hasChosenClass());
                                     sp.sendSystemMessage(Component.literal("★ Редкий класс ЧАРОДЕЙ разблокирован!").withStyle(ChatFormatting.GOLD));
+                                    return 1;
+                                }))
+                        .then(Commands.literal("learn_all")
+                                .requires(src -> src.hasPermission(2))
+                                .executes(ctx -> {
+                                    ServerPlayer sp = ctx.getSource().getPlayerOrException();
+                                    PlayerClassData data = sp.getData(ModAttachments.CLASS_DATA);
+                                    for (ArcaneSpell s : ArcaneSpell.values()) {
+                                        data.unlockSpell(s);
+                                    }
+                                    ModNetworking.syncToPlayer(sp, false);
+                                    sp.sendSystemMessage(Component.literal("Все доступные заклинания изучены!").withStyle(ChatFormatting.AQUA));
                                     return 1;
                                 }))
                         .then(Commands.literal("mana")
