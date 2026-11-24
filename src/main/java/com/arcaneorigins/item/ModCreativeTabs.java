@@ -25,16 +25,24 @@ public class ModCreativeTabs {
                         output.accept(ModItems.SCROLL_OF_REBIRTH.get());
 
                         output.accept(ModItems.SCROLL_GLACIAL_LANCE.get());
-                        output.accept(ModItems.SCROLL_ICE_SPIKES.get());
                         output.accept(ModItems.SCROLL_FROST_NOVA.get());
-                        output.accept(ModItems.SCROLL_GLACIAL_AEGIS.get());
+                        output.accept(ModItems.SCROLL_GLACIAL_WALL.get());
                         output.accept(ModItems.SCROLL_BLIZZARD.get());
 
                         output.accept(ModItems.SCROLL_ARC_LIGHTNING.get());
-                        output.accept(ModItems.SCROLL_SPARK_BARRAGE.get());
                         output.accept(ModItems.SCROLL_THUNDERSTEP.get());
-                        output.accept(ModItems.SCROLL_STATIC_NOVA.get());
+                        output.accept(ModItems.SCROLL_STORM_ORB.get());
                         output.accept(ModItems.SCROLL_TEMPEST.get());
+
+                        output.accept(ModItems.SCROLL_VOID_RIFT.get());
+                        output.accept(ModItems.SCROLL_GRAVITY_WELL.get());
+                        output.accept(ModItems.SCROLL_ZERO_G_SLAM.get());
+                        output.accept(ModItems.SCROLL_ABYSSAL_METEOR.get());
+
+                        output.accept(ModItems.SCROLL_FIREBALL.get());
+                        output.accept(ModItems.SCROLL_FLAME_DASH.get());
+                        output.accept(ModItems.SCROLL_INFERNO_RING.get());
+                        output.accept(ModItems.SCROLL_METEOR_SHOWER.get());
                     })
                     .build()
     );

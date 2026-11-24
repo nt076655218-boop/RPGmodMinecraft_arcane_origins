@@ -17,7 +17,7 @@ import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 
 public class ModNetworking {
     public static void registerPayloads(final RegisterPayloadHandlersEvent event) {
-        PayloadRegistrar registrar = event.registrar("3");
+        PayloadRegistrar registrar = event.registrar("4");
 
         registrar.playToClient(
                 SyncClassDataPayload.TYPE,
@@ -71,7 +71,7 @@ public class ModNetworking {
             if (context.player() instanceof ServerPlayer sp) {
                 PlayerClassData data = sp.getData(ModAttachments.CLASS_DATA);
                 if (data.getUnlockedSpells().isEmpty()) {
-                    sp.displayClientMessage(Component.literal("Нет изученных заклинаний! Найди или скрафти Свиток Заклинания.")
+                    sp.displayClientMessage(Component.literal("Нет изученных заклинаний!")
                             .withStyle(ChatFormatting.YELLOW), true);
                     return;
                 }

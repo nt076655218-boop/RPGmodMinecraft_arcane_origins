@@ -1,5 +1,6 @@
 package com.arcaneorigins.item;
 
+import com.arcaneorigins.classes.RpgClass;
 import com.arcaneorigins.data.ModAttachments;
 import com.arcaneorigins.data.PlayerClassData;
 import com.arcaneorigins.network.ModNetworking;
@@ -43,6 +44,18 @@ public class SpellScrollItem extends Item {
                 sp.displayClientMessage(Component.literal("Сначала выбери класс (нажми G)!").withStyle(ChatFormatting.YELLOW), true);
                 return InteractionResultHolder.fail(stack);
             }
+
+            // ONLY WIZARD can transcribe & learn spells from scrolls!
+            if (data.getRpgClass() != RpgClass.WIZARD) {
+                String msg = switch (data.getRpgClass()) {
+                    case WARLOCK -> "Твоя магия даруется Покровителем с уровнем и подношениями, свитки тебе чужды!";
+                    case SORCERER -> "Твоя магия течёт в крови — Чародеи открывают силы с уровнем, а не по книгам!";
+                    default -> "Лишь Волшебник способен расшифровать формулы этого свитка!";
+                };
+                sp.displayClientMessage(Component.literal(msg).withStyle(ChatFormatting.RED), true);
+                return InteractionResultHolder.fail(stack);
+            }
+
             if (data.hasSpellUnlocked(spell)) {
                 sp.displayClientMessage(Component.literal("Ты уже изучил заклинание «" + spell.getDisplayName() + "»!").withStyle(ChatFormatting.GRAY), true);
                 return InteractionResultHolder.fail(stack);
@@ -60,7 +73,7 @@ public class SpellScrollItem extends Item {
             sl.playSound(null, sp.getX(), sp.getY(), sp.getZ(), SoundEvents.BOOK_PAGE_TURN, SoundSource.PLAYERS, 1.0f, 1.1f);
             sl.playSound(null, sp.getX(), sp.getY(), sp.getZ(), SoundEvents.ENCHANTMENT_TABLE_USE, SoundSource.PLAYERS, 1.0f, 1.25f);
 
-            sp.sendSystemMessage(Component.literal("✦ Изучено заклинание: ")
+            sp.sendSystemMessage(Component.literal("✦ Волшебник изучил заклинание: ")
                     .withStyle(ChatFormatting.AQUA)
                     .append(Component.literal(spell.getDisplayName()).withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD)));
             ModNetworking.syncToPlayer(sp, false);
@@ -78,6 +91,6 @@ public class SpellScrollItem extends Item {
         tooltip.add(Component.literal("Запечатанный свиток: " + spell.getDisplayName() + " [" + spell.getSchool().getDisplayName() + "]")
                 .withStyle(ChatFormatting.GOLD));
         tooltip.add(Component.literal(spell.getDescription()).withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.literal("Нажми ПКМ, чтобы сорвать печать и изучить заклинание.").withStyle(ChatFormatting.AQUA));
+        tooltip.add(Component.literal("Только для Волшебника (ПКМ — изучить).").withStyle(ChatFormatting.AQUA));
     }
 }

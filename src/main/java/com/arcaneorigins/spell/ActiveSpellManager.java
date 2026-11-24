@@ -23,17 +23,12 @@ import java.util.*;
 public class ActiveSpellManager {
     private static final List<ActiveEffect> EFFECTS = new ArrayList<>();
     private static final Map<UUID, FrozenPrison> FROZEN_TARGETS = new HashMap<>();
+    private static final List<TempBlockCluster> TEMP_BLOCKS = new ArrayList<>();
 
     public static boolean isEntityFrozen(UUID uuid) {
         return FROZEN_TARGETS.containsKey(uuid);
     }
 
-    /**
-     * Freezes an enemy completely still like an ice statue inside translucent Ice blocks:
-     * - Disables Mob AI & head rotation so it doesn't twitch or look around
-     * - Cancels IN_WALL suffocation damage in ModEvents
-     * - Shatters ice cleanly on expiration without leaving water
-     */
     public static void freezeEntityInIce(ServerLevel level, LivingEntity target, int durationTicks) {
         if (target == null || !target.isAlive() || target instanceof ServerPlayer) return;
 
@@ -45,7 +40,6 @@ public class ActiveSpellManager {
             return;
         }
 
-        // Snap entity neatly to the center of its block column so it sits symmetrically inside the ice cube
         BlockPos base = target.blockPosition();
         Vec3 centeredPos = new Vec3(base.getX() + 0.5, target.getY(), base.getZ() + 0.5);
         target.teleportTo(centeredPos.x, centeredPos.y, centeredPos.z);
@@ -92,16 +86,39 @@ public class ActiveSpellManager {
         ));
     }
 
+    public static void addTemporaryIceBlocks(ServerLevel level, List<BlockPos> positions, int durationTicks) {
+        if (!positions.isEmpty()) {
+            TEMP_BLOCKS.add(new TempBlockCluster(level, positions, durationTicks));
+        }
+    }
+
     public static void addBlizzard(ServerLevel level, UUID casterId, Vec3 center, float powerMultiplier) {
-        EFFECTS.add(new ActiveEffect(EffectType.BLIZZARD, level, casterId, center, 70, powerMultiplier));
+        EFFECTS.add(new ActiveEffect(EffectType.BLIZZARD, level, casterId, center, Vec3.ZERO, 70, powerMultiplier));
     }
 
     public static void addTempest(ServerLevel level, UUID casterId, Vec3 center, float powerMultiplier) {
-        EFFECTS.add(new ActiveEffect(EffectType.TEMPEST, level, casterId, center, 60, powerMultiplier));
+        EFFECTS.add(new ActiveEffect(EffectType.TEMPEST, level, casterId, center, Vec3.ZERO, 60, powerMultiplier));
+    }
+
+    public static void addStormOrb(ServerLevel level, UUID casterId, Vec3 start, Vec3 velocity, float powerMultiplier) {
+        EFFECTS.add(new ActiveEffect(EffectType.STORM_ORB, level, casterId, start, velocity, 55, powerMultiplier));
+    }
+
+    public static void addGravityWell(ServerLevel level, UUID casterId, Vec3 center, float powerMultiplier) {
+        EFFECTS.add(new ActiveEffect(EffectType.GRAVITY_WELL, level, casterId, center, Vec3.ZERO, 65, powerMultiplier));
+    }
+
+    public static void addZeroGSlam(ServerLevel level, UUID casterId, Vec3 center, float powerMultiplier) {
+        EFFECTS.add(new ActiveEffect(EffectType.ZERO_G_SLAM, level, casterId, center, Vec3.ZERO, 26, powerMultiplier));
+    }
+
+    public static void addMeteorShower(ServerLevel level, UUID casterId, Vec3 center, float powerMultiplier) {
+        EFFECTS.add(new ActiveEffect(EffectType.METEOR_SHOWER, level, casterId, center, Vec3.ZERO, 62, powerMultiplier));
     }
 
     public static void tick(MinecraftServer server) {
         tickFrozenPrisons();
+        tickTempBlocks();
         tickAreaEffects(server);
     }
 
@@ -154,6 +171,31 @@ public class ActiveSpellManager {
         }
     }
 
+    private static void tickTempBlocks() {
+        if (TEMP_BLOCKS.isEmpty()) return;
+        Iterator<TempBlockCluster> it = TEMP_BLOCKS.iterator();
+        while (it.hasNext()) {
+            TempBlockCluster c = it.next();
+            c.remainingTicks--;
+            if (c.remainingTicks <= 0) {
+                for (BlockPos pos : c.blocks) {
+                    BlockState st = c.level.getBlockState(pos);
+                    if (st.is(Blocks.PACKED_ICE) || st.is(Blocks.ICE)) {
+                        c.level.setBlock(pos, Blocks.AIR.defaultBlockState(), 3);
+                        c.level.sendParticles(SpellVfx.ICE_SHARDS, pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5,
+                                6, 0.3, 0.3, 0.3, 0.08);
+                    }
+                }
+                if (!c.blocks.isEmpty()) {
+                    BlockPos first = c.blocks.get(0);
+                    c.level.playSound(null, first.getX(), first.getY(), first.getZ(),
+                            SoundEvents.GLASS_BREAK, SoundSource.PLAYERS, 0.9f, 1.2f);
+                }
+                it.remove();
+            }
+        }
+    }
+
     private static void tickAreaEffects(MinecraftServer server) {
         if (EFFECTS.isEmpty()) return;
         Iterator<ActiveEffect> it = EFFECTS.iterator();
@@ -165,10 +207,13 @@ public class ActiveSpellManager {
                 continue;
             }
             ServerPlayer caster = server.getPlayerList().getPlayer(effect.casterId);
-            if (effect.type == EffectType.BLIZZARD) {
-                tickBlizzard(effect, caster);
-            } else if (effect.type == EffectType.TEMPEST) {
-                tickTempest(effect, caster);
+            switch (effect.type) {
+                case BLIZZARD -> tickBlizzard(effect, caster);
+                case TEMPEST -> tickTempest(effect, caster);
+                case STORM_ORB -> tickStormOrb(effect, caster);
+                case GRAVITY_WELL -> tickGravityWell(effect, caster);
+                case ZERO_G_SLAM -> tickZeroGSlam(effect, caster);
+                case METEOR_SHOWER -> tickMeteorShower(effect, caster);
             }
         }
     }
@@ -198,21 +243,11 @@ public class ActiveSpellManager {
             }
         }
 
-        for (int s = 0; s < 3; s++) {
-            double a = rand.nextDouble() * Math.PI * 2.0;
-            double r = rand.nextDouble() * 4.5;
-            level.sendParticles(SpellVfx.ICE_SHARDS, c.x + Math.cos(a) * r, c.y + 4.5, c.z + Math.sin(a) * r,
-                    1, 0.05, -0.4, 0.05, 0.15);
-        }
-
         if (e.age % 7 == 0) {
             level.playSound(null, c.x, c.y, c.z, SoundEvents.WEATHER_RAIN_ABOVE, SoundSource.PLAYERS, 0.85f, 1.45f);
-            level.playSound(null, c.x, c.y, c.z, SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.PLAYERS, 0.8f, 1.7f);
-
             AABB box = new AABB(c.x - 5.0, c.y - 1.0, c.z - 5.0, c.x + 5.0, c.y + 4.5, c.z + 5.0);
-            List<LivingEntity> targets = level.getEntitiesOfClass(LivingEntity.class, box,
-                    ent -> ent.isAlive() && (caster == null || !ent.getUUID().equals(caster.getUUID())));
-            for (LivingEntity target : targets) {
+            for (LivingEntity target : level.getEntitiesOfClass(LivingEntity.class, box,
+                    ent -> ent.isAlive() && (caster == null || !ent.getUUID().equals(caster.getUUID())))) {
                 if (!FROZEN_TARGETS.containsKey(target.getUUID())) {
                     Vec3 pull = c.subtract(target.position()).scale(0.16);
                     target.setDeltaMovement(target.getDeltaMovement().add(pull.x, 0.02, pull.z));
@@ -237,13 +272,11 @@ public class ActiveSpellManager {
         RandomSource rand = level.getRandom();
         double cloudHeight = 7.5;
 
-        // Ground rune circle
         if (e.age % 2 == 0) {
             SpellVfx.spawnRuneHexagram(level, c.add(0, 0.12, 0), 5.6, rot, SpellVfx.LIGHTNING_BLUE);
             SpellVfx.spawnHorizontalCircle(level, c.add(0, 0.16, 0), 3.2, 24, SpellVfx.LIGHTNING_CORE);
         }
 
-        // Dense multi-layered storm cloud at y = c.y + 7.5
         for (int p = 0; p < 16; p++) {
             double a = rand.nextDouble() * Math.PI * 2.0;
             double r = rand.nextDouble() * 5.2;
@@ -252,12 +285,8 @@ public class ActiveSpellManager {
             double pz = c.z + Math.sin(a) * r;
             level.sendParticles(p % 2 == 0 ? SpellVfx.STORM_CLOUD_DARK : SpellVfx.STORM_CLOUD_INNER,
                     px, c.y + yOff, pz, 1, 0.25, 0.12, 0.25, 0);
-            if (p % 4 == 0) {
-                level.sendParticles(ParticleTypes.LARGE_SMOKE, px, c.y + yOff + 0.35, pz, 1, 0.15, 0.05, 0.15, 0.01);
-            }
         }
 
-        // Intra-cloud static arcs inside the thundercloud
         if (e.age % 4 == 0) {
             double a1 = rand.nextDouble() * Math.PI * 2.0;
             double a2 = a1 + 2.2;
@@ -266,7 +295,6 @@ public class ActiveSpellManager {
             SpellVfx.spawnJaggedLightningArc(level, p1, p2, 5, 0.45);
         }
 
-        // 4 massive volumetric cloud-to-ground lightning strikes — NO sky-piercing vanilla LightningBolt!
         if (e.age == 16 || e.age == 28 || e.age == 40 || e.age == 52) {
             AABB box = new AABB(c.x - 6.2, c.y - 1.5, c.z - 6.2, c.x + 6.2, c.y + 5.0, c.z + 6.2);
             List<LivingEntity> targets = level.getEntitiesOfClass(LivingEntity.class, box,
@@ -284,7 +312,6 @@ public class ActiveSpellManager {
                 strikePos = new Vec3(sx, SpellVfx.snapYToGround(level, sx, c.y, sz), sz);
             }
 
-            // Originates INSIDE the storm cloud (c.y + cloudHeight - 0.3), NEVER above it!
             Vec3 cloudOrigin = new Vec3(
                     strikePos.x + (rand.nextDouble() - 0.5) * 1.4,
                     c.y + cloudHeight - 0.3,
@@ -293,8 +320,6 @@ public class ActiveSpellManager {
             SpellVfx.spawnVolumetricCloudBolt(level, cloudOrigin, strikePos);
             level.playSound(null, strikePos.x, strikePos.y, strikePos.z,
                     SoundEvents.LIGHTNING_BOLT_THUNDER, SoundSource.PLAYERS, 1.35f, 1.05f);
-            level.playSound(null, strikePos.x, strikePos.y, strikePos.z,
-                    SoundEvents.LIGHTNING_BOLT_IMPACT, SoundSource.PLAYERS, 1.1f, 1.2f);
 
             AABB blastBox = new AABB(strikePos.x - 3.6, strikePos.y - 1.5, strikePos.z - 3.6,
                     strikePos.x + 3.6, strikePos.y + 3.5, strikePos.z + 3.6);
@@ -310,22 +335,185 @@ public class ActiveSpellManager {
         }
     }
 
-    private enum EffectType { BLIZZARD, TEMPEST }
+    /**
+     * Storm Orb: Drifting ball lightning that zaps every nearby enemy with mini-arcs every 8 ticks!
+     */
+    private static void tickStormOrb(ActiveEffect e, ServerPlayer caster) {
+        ServerLevel level = e.level;
+        e.center = e.center.add(e.velocity);
+        Vec3 c = e.center;
+
+        // Glowing plasma core + orbiting sparks
+        level.sendParticles(SpellVfx.LIGHTNING_CORE, c.x, c.y, c.z, 4, 0.12, 0.12, 0.12, 0);
+        level.sendParticles(SpellVfx.LIGHTNING_BLUE, c.x, c.y, c.z, 6, 0.32, 0.32, 0.32, 0);
+        level.sendParticles(ParticleTypes.ELECTRIC_SPARK, c.x, c.y, c.z, 5, 0.4, 0.4, 0.4, 0.08);
+        if (e.age % 3 == 0) {
+            SpellVfx.spawnHorizontalCircle(level, c, 0.9, 14, SpellVfx.LIGHTNING_CORE);
+        }
+
+        if (e.age % 8 == 0) {
+            AABB zapBox = new AABB(c.x - 4.5, c.y - 3.0, c.z - 4.5, c.x + 4.5, c.y + 3.0, c.z + 4.5);
+            List<LivingEntity> targets = level.getEntitiesOfClass(LivingEntity.class, zapBox,
+                    ent -> ent.isAlive() && (caster == null || !ent.getUUID().equals(caster.getUUID())));
+            if (!targets.isEmpty()) {
+                level.playSound(null, c.x, c.y, c.z, SoundEvents.TRIDENT_THUNDER, SoundSource.PLAYERS, 0.65f, 1.9f);
+            }
+            for (LivingEntity t : targets) {
+                SpellVfx.spawnJaggedLightningArc(level, c, t.getBoundingBox().getCenter(), 5, 0.35);
+                t.hurt(level.damageSources().lightningBolt(), 4.2f * e.powerMultiplier);
+                SpellExecutor.onSpellHitTarget(caster, t);
+            }
+        }
+    }
+
+    /**
+     * Gravity Well: Swirling black hole vortex that pulls enemies inward and implodes at the end!
+     */
+    private static void tickGravityWell(ActiveEffect e, ServerPlayer caster) {
+        ServerLevel level = e.level;
+        Vec3 c = e.center.add(0, 1.1, 0);
+        double spin = e.age * 0.38;
+
+        // Dark event horizon sphere + accretion disk rings
+        level.sendParticles(SpellVfx.VOID_BLACK, c.x, c.y, c.z, 6, 0.35, 0.35, 0.35, 0);
+        level.sendParticles(ParticleTypes.PORTAL, c.x, c.y, c.z, 12, 1.6, 0.8, 1.6, 0.4);
+        SpellVfx.spawnHorizontalCircle(level, c, 2.2, 22, SpellVfx.VOID_PURPLE);
+        SpellVfx.spawnHorizontalCircle(level, c, 4.4, 30, SpellVfx.VOID_MAGENTA);
+
+        for (int arm = 0; arm < 3; arm++) {
+            double a = spin + arm * (2.0 * Math.PI / 3.0);
+            double r = 4.6 * (1.0 - (e.age % 15) / 16.0);
+            level.sendParticles(SpellVfx.VOID_MAGENTA, c.x + Math.cos(a) * r, c.y, c.z + Math.sin(a) * r, 2, 0.05, 0.05, 0.05, 0);
+        }
+
+        if (e.age % 5 == 0) {
+            level.playSound(null, c.x, c.y, c.z, SoundEvents.PORTAL_AMBIENT, SoundSource.PLAYERS, 0.7f, 0.6f);
+            AABB pullBox = new AABB(c.x - 6.8, c.y - 2.5, c.z - 6.8, c.x + 6.8, c.y + 3.5, c.z + 6.8);
+            for (LivingEntity target : level.getEntitiesOfClass(LivingEntity.class, pullBox,
+                    ent -> ent.isAlive() && (caster == null || !ent.getUUID().equals(caster.getUUID())))) {
+                if (!FROZEN_TARGETS.containsKey(target.getUUID())) {
+                    Vec3 pull = c.subtract(target.position().add(0, 0.8, 0)).normalize().scale(0.42);
+                    target.setDeltaMovement(pull.x, 0.14, pull.z);
+                    target.hurtMarked = true;
+                }
+                target.hurt(level.damageSources().magic(), 2.4f * e.powerMultiplier);
+                target.addEffect(new MobEffectInstance(MobEffects.WITHER, 40, 0));
+                SpellExecutor.onSpellHitTarget(caster, target);
+            }
+        }
+
+        // Final gravitational collapse burst!
+        if (e.age == e.durationTicks) {
+            level.playSound(null, c.x, c.y, c.z, SoundEvents.GENERIC_EXPLODE.value(), SoundSource.PLAYERS, 1.2f, 0.65f);
+            level.sendParticles(ParticleTypes.EXPLOSION_EMITTER, c.x, c.y, c.z, 1, 0, 0, 0, 0);
+            SpellVfx.spawnHorizontalCircle(level, c, 5.2, 40, SpellVfx.VOID_PURPLE);
+            AABB blast = new AABB(c.x - 5.5, c.y - 2.5, c.z - 5.5, c.x + 5.5, c.y + 3.5, c.z + 5.5);
+            for (LivingEntity target : level.getEntitiesOfClass(LivingEntity.class, blast,
+                    ent -> ent.isAlive() && (caster == null || !ent.getUUID().equals(caster.getUUID())))) {
+                target.hurt(level.damageSources().magic(), 9.0f * e.powerMultiplier);
+                SpellExecutor.onSpellHitTarget(caster, target);
+            }
+        }
+    }
+
+    /**
+     * Zero-G Slam: Lifts enemies into zero-gravity for 1 second, then slams them violently into the ground!
+     */
+    private static void tickZeroGSlam(ActiveEffect e, ServerPlayer caster) {
+        ServerLevel level = e.level;
+        Vec3 c = e.center;
+        AABB box = new AABB(c.x - 6.5, c.y - 1.5, c.z - 6.5, c.x + 6.5, c.y + 8.0, c.z + 6.5);
+        List<LivingEntity> targets = level.getEntitiesOfClass(LivingEntity.class, box,
+                ent -> ent.isAlive() && (caster == null || !ent.getUUID().equals(caster.getUUID())));
+
+        if (e.age <= 16) {
+            if (e.age % 3 == 0) {
+                SpellVfx.spawnHorizontalCircle(level, c.add(0, e.age * 0.22, 0), 5.8, 32, SpellVfx.VOID_MAGENTA);
+            }
+            for (LivingEntity t : targets) {
+                if (!FROZEN_TARGETS.containsKey(t.getUUID())) {
+                    t.setDeltaMovement(0, 0.24, 0);
+                    t.hurtMarked = true;
+                }
+            }
+        } else if (e.age == 20) {
+            level.playSound(null, c.x, c.y, c.z, SoundEvents.ANVIL_LAND, SoundSource.PLAYERS, 1.3f, 0.6f);
+            SpellVfx.spawnHorizontalCircle(level, c.add(0, 0.25, 0), 6.2, 42, SpellVfx.VOID_PURPLE);
+            for (LivingEntity t : targets) {
+                if (!FROZEN_TARGETS.containsKey(t.getUUID())) {
+                    t.setDeltaMovement(0, -1.65, 0);
+                    t.hurtMarked = true;
+                }
+                t.hurt(level.damageSources().magic(), 9.5f * e.powerMultiplier);
+                t.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 60, 3));
+                SpellExecutor.onSpellHitTarget(caster, t);
+            }
+        }
+    }
+
+    /**
+     * Meteor Shower: Drops 5 blazing meteors from sky rifts onto the target area!
+     */
+    private static void tickMeteorShower(ActiveEffect e, ServerPlayer caster) {
+        ServerLevel level = e.level;
+        Vec3 c = e.center;
+        RandomSource rand = level.getRandom();
+
+        if (e.age % 2 == 0) {
+            SpellVfx.spawnRuneHexagram(level, c.add(0, 0.14, 0), 5.6, e.age * 0.1, SpellVfx.FIRE_ORANGE);
+        }
+
+        if (e.age == 10 || e.age == 22 || e.age == 34 || e.age == 46 || e.age == 58) {
+            double a = rand.nextDouble() * Math.PI * 2.0;
+            double r = rand.nextDouble() * 4.4;
+            double ix = c.x + Math.cos(a) * r;
+            double iz = c.z + Math.sin(a) * r;
+            double iy = SpellVfx.snapYToGround(level, ix, c.y, iz);
+            Vec3 impact = new Vec3(ix, iy, iz);
+            Vec3 skyStart = impact.add((rand.nextDouble() - 0.5) * 4.0, 11.0, (rand.nextDouble() - 0.5) * 4.0);
+
+            // Meteor trail
+            int steps = 18;
+            for (int s = 0; s <= steps; s++) {
+                Vec3 pt = skyStart.lerp(impact, (double) s / steps);
+                level.sendParticles(SpellVfx.FIRE_CRIMSON, pt.x, pt.y, pt.z, 3, 0.25, 0.25, 0.25, 0);
+                level.sendParticles(ParticleTypes.FLAME, pt.x, pt.y, pt.z, 4, 0.2, 0.2, 0.2, 0.03);
+                if (s % 2 == 0) {
+                    level.sendParticles(ParticleTypes.LARGE_SMOKE, pt.x, pt.y, pt.z, 2, 0.2, 0.2, 0.2, 0.01);
+                }
+            }
+
+            SpellVfx.spawnFireExplosion(level, impact, 3.2);
+            level.playSound(null, impact.x, impact.y, impact.z, SoundEvents.GENERIC_EXPLODE.value(), SoundSource.PLAYERS, 1.15f, 0.9f);
+
+            AABB blast = new AABB(impact.x - 3.6, impact.y - 1.5, impact.z - 3.6, impact.x + 3.6, impact.y + 3.5, impact.z + 3.6);
+            for (LivingEntity victim : level.getEntitiesOfClass(LivingEntity.class, blast,
+                    ent -> ent.isAlive() && (caster == null || !ent.getUUID().equals(caster.getUUID())))) {
+                victim.hurt(level.damageSources().inFire(), 8.0f * e.powerMultiplier);
+                victim.igniteForSeconds(5);
+                SpellExecutor.onSpellHitTarget(caster, victim);
+            }
+        }
+    }
+
+    private enum EffectType { BLIZZARD, TEMPEST, STORM_ORB, GRAVITY_WELL, ZERO_G_SLAM, METEOR_SHOWER }
 
     private static class ActiveEffect {
         final EffectType type;
         final ServerLevel level;
         final UUID casterId;
-        final Vec3 center;
+        Vec3 center;
+        final Vec3 velocity;
         final int durationTicks;
         final float powerMultiplier;
         int age = 0;
 
-        ActiveEffect(EffectType type, ServerLevel level, UUID casterId, Vec3 center, int durationTicks, float powerMultiplier) {
+        ActiveEffect(EffectType type, ServerLevel level, UUID casterId, Vec3 center, Vec3 velocity, int durationTicks, float powerMultiplier) {
             this.type = type;
             this.level = level;
             this.casterId = casterId;
             this.center = center;
+            this.velocity = velocity;
             this.durationTicks = durationTicks;
             this.powerMultiplier = powerMultiplier;
         }
@@ -353,6 +541,18 @@ public class ActiveSpellManager {
             this.remainingTicks = remainingTicks;
             this.hadNoAi = hadNoAi;
             this.wasSilent = wasSilent;
+        }
+    }
+
+    private static class TempBlockCluster {
+        final ServerLevel level;
+        final List<BlockPos> blocks;
+        int remainingTicks;
+
+        TempBlockCluster(ServerLevel level, List<BlockPos> blocks, int remainingTicks) {
+            this.level = level;
+            this.blocks = blocks;
+            this.remainingTicks = remainingTicks;
         }
     }
 }

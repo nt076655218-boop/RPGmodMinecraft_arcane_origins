@@ -19,6 +19,7 @@ import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.LivingEntity;
 import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
 import net.neoforged.neoforge.event.entity.living.LivingFallEvent;
 import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
@@ -86,7 +87,9 @@ public class ModEvents {
 
         if (sub == RpgSubclass.SCHOOL_ICE) {
             player.setTicksFrozen(0);
-        } else if (sub == RpgSubclass.PATRON_INFERNO) {
+        } else if (sub == RpgSubclass.SCHOOL_GRAVITY) {
+            player.addEffect(new MobEffectInstance(MobEffects.SLOW_FALLING, 30, 0, true, false));
+        } else if (sub == RpgSubclass.SCHOOL_FIRE || sub == RpgSubclass.PATRON_INFERNO || sub == RpgSubclass.DRACONIC) {
             player.addEffect(new MobEffectInstance(MobEffects.FIRE_RESISTANCE, 40, 0, true, false));
         } else if (sub == RpgSubclass.PATRON_ELDER) {
             player.addEffect(new MobEffectInstance(MobEffects.NIGHT_VISION, 260, 0, true, false));
@@ -94,10 +97,23 @@ public class ModEvents {
     }
 
     @SubscribeEvent
+    public static void onLivingDeath(LivingDeathEvent event) {
+        if (event.getSource().getEntity() instanceof ServerPlayer killer) {
+            PlayerClassData data = killer.getData(ModAttachments.CLASS_DATA);
+            if (data.hasChosenClass()) {
+                if (data.addXp(14)) {
+                    ClassManager.onClassLevelUp(killer, data);
+                }
+                ModNetworking.syncToPlayer(killer, false);
+            }
+        }
+    }
+
+    @SubscribeEvent
     public static void onLivingFall(LivingFallEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
             PlayerClassData data = player.getData(ModAttachments.CLASS_DATA);
-            if (data.getRpgSubclass() == RpgSubclass.ASTRAL) {
+            if (data.getRpgSubclass() == RpgSubclass.ASTRAL || data.getRpgSubclass() == RpgSubclass.SCHOOL_GRAVITY) {
                 event.setCanceled(true);
             }
         }
@@ -105,7 +121,6 @@ public class ModEvents {
 
     @SubscribeEvent
     public static void onIncomingDamage(LivingIncomingDamageEvent event) {
-        // Prevent mobs encased in Ice blocks from taking block suffocation (inWall) damage!
         if (event.getSource().is(DamageTypes.IN_WALL)
                 && ActiveSpellManager.isEntityFrozen(event.getEntity().getUUID())) {
             event.setCanceled(true);

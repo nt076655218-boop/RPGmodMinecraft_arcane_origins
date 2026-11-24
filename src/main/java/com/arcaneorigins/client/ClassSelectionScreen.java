@@ -18,8 +18,8 @@ public class ClassSelectionScreen extends Screen {
     private RpgSubclass selectedSubclass = RpgSubclass.SCHOOL_ICE;
 
     private int panelX, panelY;
-    private final int panelW = 386;
-    private final int panelH = 242;
+    private final int panelW = 414;
+    private final int panelH = 268;
 
     public ClassSelectionScreen() {
         super(Component.literal("Выбор пути — Arcane Origins"));
@@ -62,15 +62,15 @@ public class ClassSelectionScreen extends Screen {
 
         if (!alreadyChosen) {
             List<RpgSubclass> subs = selectedClass.getSubclasses();
-            int subY = panelY + 78;
+            int subY = panelY + 74;
             for (RpgSubclass sub : subs) {
                 String lbl = (sub == selectedSubclass ? "✦ " : "") + sub.getDisplayName();
                 Button subBtn = Button.builder(Component.literal(lbl), b -> {
                     this.selectedSubclass = sub;
                     this.rebuildWidgets();
-                }).bounds(panelX + 156, subY, 216, 20).build();
+                }).bounds(panelX + 156, subY, 244, 19).build();
                 this.addRenderableWidget(subBtn);
-                subY += 24;
+                subY += 22;
             }
 
             Button confirm = Button.builder(Component.literal("Принять судьбу"), b -> {
@@ -78,11 +78,11 @@ public class ClassSelectionScreen extends Screen {
                     PacketDistributor.sendToServer(new SelectClassPayload(selectedClass.getId(), selectedSubclass.getId()));
                     this.onClose();
                 }
-            }).bounds(panelX + 156, panelY + panelH - 28, 216, 20).build();
+            }).bounds(panelX + 156, panelY + panelH - 26, 244, 20).build();
             this.addRenderableWidget(confirm);
         } else {
             Button close = Button.builder(Component.literal("Закрыть"), b -> this.onClose())
-                    .bounds(panelX + 156, panelY + panelH - 28, 216, 20).build();
+                    .bounds(panelX + 156, panelY + panelH - 26, 244, 20).build();
             this.addRenderableWidget(close);
         }
     }
@@ -109,36 +109,43 @@ public class ClassSelectionScreen extends Screen {
         gg.drawCenteredString(this.font, header, panelX + panelW / 2, panelY + 10, 0xFFFDE68A);
 
         if (!alreadyChosen) {
-            gg.drawString(this.font, selectedClass.getDisplayName(), panelX + 156, panelY + 28,
+            gg.drawString(this.font, selectedClass.getDisplayName(), panelX + 156, panelY + 26,
                     (0xFF << 24) | selectedClass.getColor(), true);
             gg.drawWordWrap(this.font, Component.literal(selectedClass.getDescription()),
-                    panelX + 156, panelY + 40, 216, 0xFFCBD5E1);
+                    panelX + 156, panelY + 37, 244, 0xFFCBD5E1);
 
             if (selectedSubclass != null) {
-                int infoY = panelY + 158;
+                int infoY = panelY + 174;
                 gg.drawString(this.font, "Пассивный бонус:", panelX + 156, infoY, 0xFFFBBF24, true);
                 gg.drawWordWrap(this.font, Component.literal(selectedSubclass.getPassiveSummary()),
-                        panelX + 156, infoY + 11, 216, 0xFFE2E8F0);
+                        panelX + 156, infoY + 11, 244, 0xFFE2E8F0);
             }
         } else {
             RpgSubclass sub = ClientClassCache.getRpgSubclass();
             if (sub != null) {
                 gg.drawString(this.font, "Пассивка: " + sub.getDisplayName(), panelX + 156, panelY + 26, 0xFFFBBF24, true);
                 gg.drawWordWrap(this.font, Component.literal(sub.getPassiveSummary()),
-                        panelX + 156, panelY + 37, 216, 0xFFCBD5E1);
+                        panelX + 156, panelY + 37, 244, 0xFFCBD5E1);
             }
 
-            int listY = panelY + 72;
-            gg.drawString(this.font, "Изученные чары (" + ClientClassCache.unlockedSpells.size() + "/" + ArcaneSpell.values().length + "):",
+            int listY = panelY + 68;
+            gg.drawString(this.font, "Открытые заклинания (" + ClientClassCache.unlockedSpells.size() + "):",
                     panelX + 156, listY, 0xFF38BDF8, true);
             listY += 12;
 
-            for (ArcaneSpell sp : ArcaneSpell.values()) {
-                boolean known = ClientClassCache.unlockedSpells.contains(sp.getId());
-                String line = (known ? "✦ " : "🔒 ") + sp.getDisplayName() + " [" + sp.getSchool().getDisplayName() + "]";
-                int col = known ? ((0xFF << 24) | sp.getSchool().getColor()) : 0xFF64748B;
-                gg.drawString(this.font, line, panelX + 158, listY, col, true);
-                listY += 11;
+            List<String> knownIds = ClientClassCache.unlockedSpells;
+            if (knownIds.isEmpty()) {
+                gg.drawString(this.font, "Пока нет открытых заклинаний.", panelX + 158, listY, 0xFF64748B, true);
+            } else {
+                for (String id : knownIds) {
+                    ArcaneSpell sp = ArcaneSpell.byId(id);
+                    if (sp == null) continue;
+                    String line = "✦ " + sp.getDisplayName() + " [" + sp.getSchool().getDisplayName() + "]";
+                    int col = (0xFF << 24) | sp.getSchool().getColor();
+                    gg.drawString(this.font, line, panelX + 158, listY, col, true);
+                    listY += 11;
+                    if (listY > panelY + panelH - 38) break;
+                }
             }
         }
     }

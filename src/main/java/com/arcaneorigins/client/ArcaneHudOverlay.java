@@ -22,7 +22,7 @@ public class ArcaneHudOverlay {
         RpgClass rpgClass = ClientClassCache.getRpgClass();
         ArcaneSpell spell = ClientClassCache.getSelectedSpell();
 
-        int boxW = 176;
+        int boxW = 184;
         int boxH = rpgClass == RpgClass.WARLOCK ? 52 : 44;
 
         int accent = (0xFF << 24) | (rpgClass != null ? rpgClass.getColor() : 0x3B82F6);
@@ -52,7 +52,7 @@ public class ArcaneHudOverlay {
             String spellLine = "[R] " + spell.getDisplayName() + " (" + (int) spell.getManaCost() + ")";
             gg.drawString(font, spellLine, x + 6, y + 29, spellColor, true);
         } else {
-            gg.drawString(font, "Заклинаний нет (нужен свиток)", x + 6, y + 29, 0xFF94A3B8, true);
+            gg.drawString(font, "Заклинаний нет", x + 6, y + 29, 0xFF94A3B8, true);
         }
 
         if (rpgClass == RpgClass.WARLOCK) {

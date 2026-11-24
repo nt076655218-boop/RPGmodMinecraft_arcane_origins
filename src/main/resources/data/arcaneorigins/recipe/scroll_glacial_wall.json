@@ -1,0 +1,20 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "III",
+    " P ",
+    "III"
+  ],
+  "key": {
+    "I": {
+      "item": "minecraft:packed_ice"
+    },
+    "P": {
+      "item": "minecraft:paper"
+    }
+  },
+  "result": {
+    "id": "arcaneorigins:scroll_glacial_wall",
+    "count": 1
+  }
+}

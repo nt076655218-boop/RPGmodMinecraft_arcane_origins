@@ -17,17 +17,31 @@ import net.minecraft.world.phys.Vec3;
 import org.joml.Vector3f;
 
 public class SpellVfx {
+    // Ice
     public static final DustParticleOptions ICE_CORE = new DustParticleOptions(new Vector3f(0.84f, 0.98f, 1.0f), 1.4f);
     public static final DustParticleOptions ICE_DEEP = new DustParticleOptions(new Vector3f(0.12f, 0.58f, 0.96f), 1.7f);
+    public static final BlockParticleOption ICE_SHARDS = new BlockParticleOption(ParticleTypes.BLOCK, Blocks.PACKED_ICE.defaultBlockState());
+    public static final BlockParticleOption BLUE_ICE_SHARDS = new BlockParticleOption(ParticleTypes.BLOCK, Blocks.BLUE_ICE.defaultBlockState());
+
+    // Lightning
     public static final DustParticleOptions LIGHTNING_CORE = new DustParticleOptions(new Vector3f(0.96f, 0.99f, 1.0f), 1.55f);
     public static final DustParticleOptions LIGHTNING_BLUE = new DustParticleOptions(new Vector3f(0.24f, 0.58f, 1.0f), 1.9f);
     public static final DustParticleOptions STORM_CLOUD_DARK = new DustParticleOptions(new Vector3f(0.14f, 0.17f, 0.26f), 3.0f);
     public static final DustParticleOptions STORM_CLOUD_INNER = new DustParticleOptions(new Vector3f(0.24f, 0.30f, 0.45f), 2.5f);
+
+    // Gravity / Void
+    public static final DustParticleOptions VOID_BLACK = new DustParticleOptions(new Vector3f(0.06f, 0.02f, 0.12f), 2.4f);
+    public static final DustParticleOptions VOID_PURPLE = new DustParticleOptions(new Vector3f(0.65f, 0.16f, 0.96f), 1.7f);
+    public static final DustParticleOptions VOID_MAGENTA = new DustParticleOptions(new Vector3f(0.92f, 0.35f, 1.0f), 1.35f);
+
+    // Fire
+    public static final DustParticleOptions FIRE_ORANGE = new DustParticleOptions(new Vector3f(1.0f, 0.42f, 0.05f), 1.75f);
+    public static final DustParticleOptions FIRE_YELLOW = new DustParticleOptions(new Vector3f(1.0f, 0.85f, 0.20f), 1.4f);
+    public static final DustParticleOptions FIRE_CRIMSON = new DustParticleOptions(new Vector3f(0.80f, 0.10f, 0.05f), 2.0f);
+
+    // Misc
     public static final DustParticleOptions ARCANE_GOLD = new DustParticleOptions(new Vector3f(1.0f, 0.80f, 0.25f), 1.3f);
     public static final DustParticleOptions WARLOCK_VOID = new DustParticleOptions(new Vector3f(0.62f, 0.15f, 0.92f), 1.4f);
-
-    public static final BlockParticleOption ICE_SHARDS = new BlockParticleOption(ParticleTypes.BLOCK, Blocks.PACKED_ICE.defaultBlockState());
-    public static final BlockParticleOption BLUE_ICE_SHARDS = new BlockParticleOption(ParticleTypes.BLOCK, Blocks.BLUE_ICE.defaultBlockState());
 
     public static Vec3 findGroundedTargetPosition(ServerLevel level, ServerPlayer player, double maxDist) {
         Vec3 eye = player.getEyePosition();
@@ -92,18 +106,6 @@ public class SpellVfx {
         }
     }
 
-    public static void spawnIceSpikeCone(ServerLevel level, Vec3 base, double height) {
-        int layers = 8;
-        for (int l = 0; l <= layers; l++) {
-            double t = (double) l / layers;
-            double y = base.y + t * height;
-            double r = 0.55 * (1.0 - t);
-            int pts = Math.max(4, (int) (14 * (1.0 - t)));
-            spawnHorizontalCircle(level, new Vec3(base.x, y, base.z), r, pts, l % 2 == 0 ? ICE_CORE : ICE_DEEP);
-        }
-        level.sendParticles(BLUE_ICE_SHARDS, base.x, base.y + height * 0.4, base.z, 12, 0.25, 0.5, 0.25, 0.08);
-    }
-
     public static void spawnDoubleHelixBeam(ServerLevel level, Vec3 start, Vec3 end, double helixRadius, double turns) {
         Vec3 diff = end.subtract(start);
         double dist = diff.length();
@@ -119,12 +121,8 @@ public class SpellVfx {
             Vec3 center = start.add(dir.scale(t * dist));
             double angle = t * turns * Math.PI * 2.0;
 
-            if (i % 2 == 0) {
-                level.sendParticles(ICE_CORE, center.x, center.y, center.z, 1, 0, 0, 0, 0);
-            }
-            if (i % 4 == 0) {
-                level.sendParticles(ParticleTypes.END_ROD, center.x, center.y, center.z, 1, 0.02, 0.02, 0.02, 0.01);
-            }
+            if (i % 2 == 0) level.sendParticles(ICE_CORE, center.x, center.y, center.z, 1, 0, 0, 0, 0);
+            if (i % 4 == 0) level.sendParticles(ParticleTypes.END_ROD, center.x, center.y, center.z, 1, 0.02, 0.02, 0.02, 0.01);
 
             double r = helixRadius * (1.0 - t * 0.35);
             Vec3 offset1 = right.scale(Math.cos(angle) * r).add(up.scale(Math.sin(angle) * r));
@@ -134,9 +132,6 @@ public class SpellVfx {
 
             level.sendParticles(ICE_DEEP, p1.x, p1.y, p1.z, 1, 0, 0, 0, 0);
             level.sendParticles(ParticleTypes.SNOWFLAKE, p2.x, p2.y, p2.z, 1, 0, 0, 0, 0);
-            if (i % 6 == 0) {
-                level.sendParticles(ICE_SHARDS, center.x, center.y, center.z, 2, 0.15, 0.15, 0.15, 0.05);
-            }
         }
     }
 
@@ -167,10 +162,6 @@ public class SpellVfx {
         }
     }
 
-    /**
-     * Volumetric multi-strand lightning bolt starting STRICTLY inside the storm cloud and hitting the ground!
-     * Replaces vanilla sky-high LightningBolt entity so nothing ever shoots above the particle cloud!
-     */
     public static void spawnVolumetricCloudBolt(ServerLevel level, Vec3 cloudOrigin, Vec3 groundImpact) {
         RandomSource rand = level.getRandom();
         int segments = 10;
@@ -193,7 +184,6 @@ public class SpellVfx {
                     (rand.nextDouble() - 0.5) * 2.2 * spread
             );
 
-            // Thick glowing core + electric blue aura + END_ROD flash points
             int sub = 8;
             for (int s = 0; s <= sub; s++) {
                 double st = (double) s / sub;
@@ -209,7 +199,6 @@ public class SpellVfx {
                 }
             }
 
-            // Secondary side forks in mid-air
             if (i >= 3 && i <= 7 && rand.nextFloat() < 0.65f) {
                 Vec3 forkEnd = nextMain.add(
                         (rand.nextDouble() - 0.5) * 3.0,
@@ -223,7 +212,6 @@ public class SpellVfx {
             prevTwin = nextTwin;
         }
 
-        // Ground impact flash + expanding shockwave rings
         level.sendParticles(ParticleTypes.FLASH, groundImpact.x, groundImpact.y + 0.5, groundImpact.z, 1, 0, 0, 0, 0);
         level.sendParticles(ParticleTypes.ELECTRIC_SPARK, groundImpact.x, groundImpact.y + 0.3, groundImpact.z, 35, 0.9, 0.3, 0.9, 0.18);
         spawnHorizontalCircle(level, groundImpact.add(0, 0.2, 0), 1.8, 22, LIGHTNING_CORE);
@@ -241,5 +229,35 @@ public class SpellVfx {
         }
         level.sendParticles(ParticleTypes.SNOWFLAKE, center.x, center.y, center.z, 26, 0.65, 0.65, 0.65, 0.12);
         level.sendParticles(BLUE_ICE_SHARDS, center.x, center.y, center.z, 18, 0.45, 0.45, 0.45, 0.12);
+    }
+
+    public static void spawnVoidRiftSlash(ServerLevel level, Vec3 start, Vec3 end) {
+        Vec3 diff = end.subtract(start);
+        double dist = diff.length();
+        if (dist < 0.1) return;
+        Vec3 dir = diff.normalize();
+        Vec3 side = dir.cross(new Vec3(0, 1, 0)).normalize();
+        if (side.lengthSqr() < 0.01) side = new Vec3(1, 0, 0);
+
+        int steps = Math.max(12, (int) (dist * 4.5));
+        for (int i = 0; i <= steps; i++) {
+            double t = (double) i / steps;
+            Vec3 p = start.add(dir.scale(t * dist));
+            double tear = Math.sin(t * Math.PI) * 0.75;
+            level.sendParticles(VOID_BLACK, p.x, p.y, p.z, 2, 0.08, 0.25 * tear, 0.08, 0);
+            level.sendParticles(VOID_PURPLE, p.x + side.x * tear * 0.5, p.y, p.z + side.z * tear * 0.5, 1, 0, 0.15, 0, 0);
+            level.sendParticles(VOID_PURPLE, p.x - side.x * tear * 0.5, p.y, p.z - side.z * tear * 0.5, 1, 0, 0.15, 0, 0);
+            if (i % 2 == 0) {
+                level.sendParticles(ParticleTypes.REVERSE_PORTAL, p.x, p.y, p.z, 2, 0.2, 0.2, 0.2, 0.02);
+            }
+        }
+    }
+
+    public static void spawnFireExplosion(ServerLevel level, Vec3 center, double radius) {
+        level.sendParticles(ParticleTypes.EXPLOSION_EMITTER, center.x, center.y + 0.5, center.z, 1, 0, 0, 0, 0);
+        level.sendParticles(ParticleTypes.FLAME, center.x, center.y + 0.5, center.z, 55, radius * 0.45, 0.5, radius * 0.45, 0.16);
+        level.sendParticles(ParticleTypes.LAVA, center.x, center.y + 0.4, center.z, 18, radius * 0.4, 0.4, radius * 0.4, 0.1);
+        spawnHorizontalCircle(level, center.add(0, 0.2, 0), radius, 34, FIRE_ORANGE);
+        spawnHorizontalCircle(level, center.add(0, 0.5, 0), radius * 0.65, 24, FIRE_YELLOW);
     }
 }

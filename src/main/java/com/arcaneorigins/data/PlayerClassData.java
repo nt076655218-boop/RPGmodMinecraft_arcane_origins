@@ -101,7 +101,7 @@ public class PlayerClassData {
     public void setClassXp(int classXp) { this.classXp = Math.max(0, classXp); }
 
     public int getXpForNextLevel() {
-        return 60 + (level - 1) * 45;
+        return 55 + (level - 1) * 40;
     }
 
     public boolean addXp(int amount) {

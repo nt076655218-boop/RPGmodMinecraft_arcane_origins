@@ -1,0 +1,26 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    " F ",
+    "OPO",
+    " G "
+  ],
+  "key": {
+    "F": {
+      "item": "minecraft:feather"
+    },
+    "O": {
+      "item": "minecraft:obsidian"
+    },
+    "P": {
+      "item": "minecraft:paper"
+    },
+    "G": {
+      "item": "minecraft:gold_ingot"
+    }
+  },
+  "result": {
+    "id": "arcaneorigins:scroll_zero_g_slam",
+    "count": 1
+  }
+}
