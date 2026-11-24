@@ -14,6 +14,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.damagesource.DamageTypes;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.LivingEntity;
@@ -104,6 +105,13 @@ public class ModEvents {
 
     @SubscribeEvent
     public static void onIncomingDamage(LivingIncomingDamageEvent event) {
+        // Prevent mobs encased in Ice blocks from taking block suffocation (inWall) damage!
+        if (event.getSource().is(DamageTypes.IN_WALL)
+                && ActiveSpellManager.isEntityFrozen(event.getEntity().getUUID())) {
+            event.setCanceled(true);
+            return;
+        }
+
         if (event.getEntity() instanceof ServerPlayer defender) {
             PlayerClassData defData = defender.getData(ModAttachments.CLASS_DATA);
             RpgSubclass sub = defData.getRpgSubclass();

@@ -1,0 +1,23 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    " S ",
+    "IPI",
+    " I "
+  ],
+  "key": {
+    "S": {
+      "item": "minecraft:snowball"
+    },
+    "I": {
+      "item": "minecraft:ice"
+    },
+    "P": {
+      "item": "minecraft:paper"
+    }
+  },
+  "result": {
+    "id": "arcaneorigins:scroll_ice_spikes",
+    "count": 1
+  }
+}

@@ -16,7 +16,7 @@ public class ModCreativeTabs {
             "arcane_tab",
             () -> CreativeModeTab.builder()
                     .title(Component.translatable("itemGroup.arcaneorigins"))
-                    .icon(() -> new ItemStack(ModItems.FROST_STAFF.get()))
+                    .icon(() -> new ItemStack(ModItems.ARCANE_SPELLBOOK.get()))
                     .displayItems((params, output) -> {
                         output.accept(ModItems.ARCANE_SPELLBOOK.get());
                         output.accept(ModItems.FROST_STAFF.get());
@@ -25,10 +25,15 @@ public class ModCreativeTabs {
                         output.accept(ModItems.SCROLL_OF_REBIRTH.get());
 
                         output.accept(ModItems.SCROLL_GLACIAL_LANCE.get());
+                        output.accept(ModItems.SCROLL_ICE_SPIKES.get());
                         output.accept(ModItems.SCROLL_FROST_NOVA.get());
+                        output.accept(ModItems.SCROLL_GLACIAL_AEGIS.get());
                         output.accept(ModItems.SCROLL_BLIZZARD.get());
+
                         output.accept(ModItems.SCROLL_ARC_LIGHTNING.get());
+                        output.accept(ModItems.SCROLL_SPARK_BARRAGE.get());
                         output.accept(ModItems.SCROLL_THUNDERSTEP.get());
+                        output.accept(ModItems.SCROLL_STATIC_NOVA.get());
                         output.accept(ModItems.SCROLL_TEMPEST.get());
                     })
                     .build()

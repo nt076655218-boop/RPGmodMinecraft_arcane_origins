@@ -45,15 +45,14 @@ public class ClassManager {
         applyPassives(player);
         data.setMana(data.getMaxMana());
 
-        // Starting spells & class gear — NO ALL-SPELLS-UNLOCKED CHEAT!
         if (rpgClass == RpgClass.WIZARD) {
             giveIfMissing(player, new ItemStack(ModItems.ARCANE_SPELLBOOK.get()));
             if (subclass == RpgSubclass.SCHOOL_ICE) {
                 data.unlockSpell(ArcaneSpell.GLACIAL_LANCE);
-                giveIfMissing(player, new ItemStack(ModItems.SCROLL_FROST_NOVA.get()));
+                giveIfMissing(player, new ItemStack(ModItems.SCROLL_ICE_SPIKES.get()));
             } else {
                 data.unlockSpell(ArcaneSpell.ARC_LIGHTNING);
-                giveIfMissing(player, new ItemStack(ModItems.SCROLL_THUNDERSTEP.get()));
+                giveIfMissing(player, new ItemStack(ModItems.SCROLL_SPARK_BARRAGE.get()));
             }
             player.sendSystemMessage(Component.literal("Подсказка: используй Свитки Заклинаний (ПКМ), чтобы вписать новые чары в память!")
                     .withStyle(ChatFormatting.AQUA));
@@ -61,7 +60,7 @@ public class ClassManager {
             giveIfMissing(player, new ItemStack(ModItems.PATRON_SIGIL.get()));
             data.setPatronFavor(25);
             data.unlockSpell(ArcaneSpell.ARC_LIGHTNING);
-            player.sendSystemMessage(Component.literal("Покровитель даровал вам первое заклинание. Подносите дары через Печать, чтобы открыть новые!")
+            player.sendSystemMessage(Component.literal("Покровитель даровал вам первое заклинание. Подносите дары через Сферу, чтобы открыть новые!")
                     .withStyle(ChatFormatting.LIGHT_PURPLE));
         } else if (rpgClass == RpgClass.SORCERER) {
             data.unlockSpell(ArcaneSpell.GLACIAL_LANCE);
@@ -89,13 +88,20 @@ public class ClassManager {
         player.serverLevel().playSound(null, player.getX(), player.getY(), player.getZ(),
                 SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 0.9f, 1.2f);
 
-        // Sorcerer innately awakens higher-tier spells as they level up
         if (rpgClass == RpgClass.SORCERER) {
             if (lvl >= 2) {
+                tryAnnounceSpellUnlock(player, data, ArcaneSpell.ICE_SPIKES);
+                tryAnnounceSpellUnlock(player, data, ArcaneSpell.SPARK_BARRAGE);
+            }
+            if (lvl >= 3) {
                 tryAnnounceSpellUnlock(player, data, ArcaneSpell.FROST_NOVA);
                 tryAnnounceSpellUnlock(player, data, ArcaneSpell.THUNDERSTEP);
             }
             if (lvl >= 4) {
+                tryAnnounceSpellUnlock(player, data, ArcaneSpell.GLACIAL_AEGIS);
+                tryAnnounceSpellUnlock(player, data, ArcaneSpell.STATIC_NOVA);
+            }
+            if (lvl >= 5) {
                 tryAnnounceSpellUnlock(player, data, ArcaneSpell.BLIZZARD_TEMPEST);
                 tryAnnounceSpellUnlock(player, data, ArcaneSpell.TEMPEST_JUDGMENT);
             }

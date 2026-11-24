@@ -75,9 +75,9 @@ public class SpellScrollItem extends Item {
 
     @Override
     public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltip, TooltipFlag flag) {
-        tooltip.add(Component.literal("Древний свиток: " + spell.getDisplayName() + " [" + spell.getSchool().getDisplayName() + "]")
+        tooltip.add(Component.literal("Запечатанный свиток: " + spell.getDisplayName() + " [" + spell.getSchool().getDisplayName() + "]")
                 .withStyle(ChatFormatting.GOLD));
         tooltip.add(Component.literal(spell.getDescription()).withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.literal("Нажми ПКМ, чтобы изучить заклинание навсегда.").withStyle(ChatFormatting.AQUA));
+        tooltip.add(Component.literal("Нажми ПКМ, чтобы сорвать печать и изучить заклинание.").withStyle(ChatFormatting.AQUA));
     }
 }

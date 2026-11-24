@@ -56,18 +56,22 @@ public class PatronSigilItem extends Item {
             data.setMana(data.getMana() + favorGain * 2.5f);
             data.addXp(favorGain / 2);
 
-            // Unlock deeper Warlock spells as Patron Favor reaches milestones!
             int favor = data.getPatronFavor();
-            if (favor >= 40) {
+            if (favor >= 35) {
                 ClassManager.tryAnnounceSpellUnlock(sp, data, ArcaneSpell.GLACIAL_LANCE);
+                ClassManager.tryAnnounceSpellUnlock(sp, data, ArcaneSpell.SPARK_BARRAGE);
+            }
+            if (favor >= 55) {
+                ClassManager.tryAnnounceSpellUnlock(sp, data, ArcaneSpell.ICE_SPIKES);
                 ClassManager.tryAnnounceSpellUnlock(sp, data, ArcaneSpell.THUNDERSTEP);
             }
             if (favor >= 75) {
                 ClassManager.tryAnnounceSpellUnlock(sp, data, ArcaneSpell.FROST_NOVA);
-                ClassManager.tryAnnounceSpellUnlock(sp, data, ArcaneSpell.TEMPEST_JUDGMENT);
+                ClassManager.tryAnnounceSpellUnlock(sp, data, ArcaneSpell.STATIC_NOVA);
             }
             if (favor >= 95) {
                 ClassManager.tryAnnounceSpellUnlock(sp, data, ArcaneSpell.BLIZZARD_TEMPEST);
+                ClassManager.tryAnnounceSpellUnlock(sp, data, ArcaneSpell.TEMPEST_JUDGMENT);
             }
 
             ServerLevel sl = sp.serverLevel();
@@ -96,7 +100,7 @@ public class PatronSigilItem extends Item {
 
     @Override
     public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltip, TooltipFlag flag) {
-        tooltip.add(Component.literal("Ритуальная печать Колдуна.").withStyle(ChatFormatting.LIGHT_PURPLE));
+        tooltip.add(Component.literal("Сфера Покровителя (реликвия Колдуна).").withStyle(ChatFormatting.LIGHT_PURPLE));
         tooltip.add(Component.literal("Подноси дары во второй руке (ПКМ) для Маны и новых даров Покровителя.").withStyle(ChatFormatting.GRAY));
     }
 }

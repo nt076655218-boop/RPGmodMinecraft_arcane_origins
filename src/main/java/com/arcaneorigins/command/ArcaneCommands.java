@@ -48,7 +48,7 @@ public class ArcaneCommands {
                                         data.unlockSpell(s);
                                     }
                                     ModNetworking.syncToPlayer(sp, false);
-                                    sp.sendSystemMessage(Component.literal("Все доступные заклинания изучены!").withStyle(ChatFormatting.AQUA));
+                                    sp.sendSystemMessage(Component.literal("Все 10 заклинаний изучены!").withStyle(ChatFormatting.AQUA));
                                     return 1;
                                 }))
                         .then(Commands.literal("mana")

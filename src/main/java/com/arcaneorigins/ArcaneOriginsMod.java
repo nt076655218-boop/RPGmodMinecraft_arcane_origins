@@ -28,6 +28,6 @@ public class ArcaneOriginsMod {
         NeoForge.EVENT_BUS.register(ModEvents.class);
         NeoForge.EVENT_BUS.addListener(ArcaneCommands::onRegisterCommands);
 
-        LOGGER.info("Arcane Origins v0.2.0 initialized for NeoForge 1.21.1!");
+        LOGGER.info("Arcane Origins v0.3.0 initialized for NeoForge 1.21.1!");
     }
 }

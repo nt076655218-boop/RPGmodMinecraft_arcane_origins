@@ -11,8 +11,6 @@ import net.minecraft.util.RandomSource;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.LightningBolt;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.level.block.Blocks;
@@ -26,8 +24,15 @@ public class ActiveSpellManager {
     private static final List<ActiveEffect> EFFECTS = new ArrayList<>();
     private static final Map<UUID, FrozenPrison> FROZEN_TARGETS = new HashMap<>();
 
+    public static boolean isEntityFrozen(UUID uuid) {
+        return FROZEN_TARGETS.containsKey(uuid);
+    }
+
     /**
-     * Actually freezes an enemy inside real translucent Ice blocks, paralyzing them until the ice thaws or breaks!
+     * Freezes an enemy completely still like an ice statue inside translucent Ice blocks:
+     * - Disables Mob AI & head rotation so it doesn't twitch or look around
+     * - Cancels IN_WALL suffocation damage in ModEvents
+     * - Shatters ice cleanly on expiration without leaving water
      */
     public static void freezeEntityInIce(ServerLevel level, LivingEntity target, int durationTicks) {
         if (target == null || !target.isAlive() || target instanceof ServerPlayer) return;
@@ -40,10 +45,14 @@ public class ActiveSpellManager {
             return;
         }
 
-        List<BlockPos> placedIce = new ArrayList<>();
+        // Snap entity neatly to the center of its block column so it sits symmetrically inside the ice cube
         BlockPos base = target.blockPosition();
+        Vec3 centeredPos = new Vec3(base.getX() + 0.5, target.getY(), base.getZ() + 0.5);
+        target.teleportTo(centeredPos.x, centeredPos.y, centeredPos.z);
+
+        List<BlockPos> placedIce = new ArrayList<>();
         int height = Math.max(2, (int) Math.ceil(target.getBbHeight()));
-        int radius = target.getBbWidth() > 1.1f ? 1 : 0;
+        int radius = target.getBbWidth() > 1.05f ? 1 : 0;
 
         for (int dy = 0; dy < height; dy++) {
             for (int dx = -radius; dx <= radius; dx++) {
@@ -58,21 +67,29 @@ public class ActiveSpellManager {
             }
         }
 
-        // Anchor entity cleanly inside the ice block so it doesn't suffocate or jitter out
+        boolean hadNoAi = false;
+        boolean wasSilent = target.isSilent();
+        if (target instanceof Mob mob) {
+            hadNoAi = mob.isNoAi();
+            mob.getNavigation().stop();
+            mob.setNoAi(true);
+            mob.setSilent(true);
+        }
+
         target.setDeltaMovement(Vec3.ZERO);
         target.hurtMarked = true;
         target.setTicksFrozen(320);
         target.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, durationTicks + 20, 6, false, false));
-        if (target instanceof Mob mob) {
-            mob.getNavigation().stop();
-        }
 
-        level.playSound(null, target.getX(), target.getY(), target.getZ(),
+        level.playSound(null, centeredPos.x, centeredPos.y, centeredPos.z,
                 SoundEvents.GLASS_PLACE, SoundSource.PLAYERS, 1.1f, 1.35f);
-        level.sendParticles(SpellVfx.BLUE_ICE_SHARDS, target.getX(), target.getY() + 1.0, target.getZ(),
+        level.sendParticles(SpellVfx.BLUE_ICE_SHARDS, centeredPos.x, centeredPos.y + 1.0, centeredPos.z,
                 22, 0.45, 0.75, 0.45, 0.08);
 
-        FROZEN_TARGETS.put(id, new FrozenPrison(level, id, target.position(), placedIce, durationTicks));
+        FROZEN_TARGETS.put(id, new FrozenPrison(
+                level, id, centeredPos, target.getYRot(), target.getXRot(),
+                placedIce, durationTicks, hadNoAi, wasSilent
+        ));
     }
 
     public static void addBlizzard(ServerLevel level, UUID casterId, Vec3 center, float powerMultiplier) {
@@ -100,11 +117,14 @@ public class ActiveSpellManager {
                     .noneMatch(p -> prison.level.getBlockState(p).is(Blocks.ICE));
 
             if (ent == null || !ent.isAlive() || prison.remainingTicks <= 0 || allIceBroken) {
-                // Shatter the ice block prison cleanly without dropping water!
                 for (BlockPos pos : prison.iceBlocks) {
                     if (prison.level.getBlockState(pos).is(Blocks.ICE)) {
                         prison.level.setBlock(pos, Blocks.AIR.defaultBlockState(), 3);
                     }
+                }
+                if (ent instanceof Mob mob && mob.isAlive()) {
+                    mob.setNoAi(prison.hadNoAi);
+                    mob.setSilent(prison.wasSilent);
                 }
                 prison.level.playSound(null, prison.anchorPos.x, prison.anchorPos.y, prison.anchorPos.z,
                         SoundEvents.GLASS_BREAK, SoundSource.PLAYERS, 1.1f, 1.15f);
@@ -116,18 +136,19 @@ public class ActiveSpellManager {
             }
 
             if (ent instanceof LivingEntity living) {
-                // Keep frozen target immobilized & prevent block suffocation damage
                 living.setAirSupply(living.getMaxAirSupply());
                 living.setTicksFrozen(300);
                 living.setDeltaMovement(Vec3.ZERO);
-                living.teleportTo(prison.anchorPos.x, prison.anchorPos.y, prison.anchorPos.z);
-                if (living instanceof Mob mob) {
-                    mob.getNavigation().stop();
-                }
-                if (prison.remainingTicks % 10 == 0) {
+                living.setYRot(prison.frozenYaw);
+                living.setXRot(prison.frozenPitch);
+                living.yHeadRot = prison.frozenYaw;
+                living.yBodyRot = prison.frozenYaw;
+                living.setPos(prison.anchorPos.x, prison.anchorPos.y, prison.anchorPos.z);
+
+                if (prison.remainingTicks % 12 == 0) {
                     prison.level.sendParticles(ParticleTypes.SNOWFLAKE,
                             prison.anchorPos.x, prison.anchorPos.y + 1.1, prison.anchorPos.z,
-                            4, 0.5, 0.7, 0.5, 0.01);
+                            3, 0.55, 0.75, 0.55, 0.01);
                 }
             }
         }
@@ -158,7 +179,6 @@ public class ActiveSpellManager {
         double spin = e.age * 0.45;
         RandomSource rand = level.getRandom();
 
-        // Ground frost rune ring + 4 helical storm arms + falling hail/ice shards
         if (e.age % 2 == 0) {
             SpellVfx.spawnRuneHexagram(level, c.add(0, 0.12, 0), 4.6, e.age * 0.08, SpellVfx.ICE_DEEP);
         }
@@ -178,7 +198,6 @@ public class ActiveSpellManager {
             }
         }
 
-        // Falling ice shard hail inside the storm
         for (int s = 0; s < 3; s++) {
             double a = rand.nextDouble() * Math.PI * 2.0;
             double r = rand.nextDouble() * 4.5;
@@ -200,7 +219,6 @@ public class ActiveSpellManager {
                     target.hurtMarked = true;
                 }
                 target.hurt(level.damageSources().freeze(), 3.2f * e.powerMultiplier);
-                // Freeze targets solid in ice blocks on climax or heavy chill!
                 if (e.age >= 28 && rand.nextFloat() < 0.45f) {
                     freezeEntityInIce(level, target, 80);
                 } else {
@@ -217,28 +235,29 @@ public class ActiveSpellManager {
         Vec3 c = e.center;
         double rot = e.age * 0.22;
         RandomSource rand = level.getRandom();
-        double cloudHeight = 8.5;
+        double cloudHeight = 7.5;
 
-        // Ground target rune + dense dark storm cloud overhead
+        // Ground rune circle
         if (e.age % 2 == 0) {
             SpellVfx.spawnRuneHexagram(level, c.add(0, 0.12, 0), 5.6, rot, SpellVfx.LIGHTNING_BLUE);
             SpellVfx.spawnHorizontalCircle(level, c.add(0, 0.16, 0), 3.2, 24, SpellVfx.LIGHTNING_CORE);
         }
 
-        // Volumetric thundercloud canopy
-        for (int p = 0; p < 12; p++) {
+        // Dense multi-layered storm cloud at y = c.y + 7.5
+        for (int p = 0; p < 16; p++) {
             double a = rand.nextDouble() * Math.PI * 2.0;
             double r = rand.nextDouble() * 5.2;
-            double yOff = cloudHeight + (rand.nextDouble() - 0.5) * 1.1;
+            double yOff = cloudHeight + (rand.nextDouble() - 0.5) * 1.2;
             double px = c.x + Math.cos(a) * r;
             double pz = c.z + Math.sin(a) * r;
-            level.sendParticles(SpellVfx.STORM_CLOUD_DARK, px, c.y + yOff, pz, 1, 0.2, 0.1, 0.2, 0);
-            if (p % 3 == 0) {
-                level.sendParticles(ParticleTypes.LARGE_SMOKE, px, c.y + yOff + 0.3, pz, 1, 0.15, 0.05, 0.15, 0.01);
+            level.sendParticles(p % 2 == 0 ? SpellVfx.STORM_CLOUD_DARK : SpellVfx.STORM_CLOUD_INNER,
+                    px, c.y + yOff, pz, 1, 0.25, 0.12, 0.25, 0);
+            if (p % 4 == 0) {
+                level.sendParticles(ParticleTypes.LARGE_SMOKE, px, c.y + yOff + 0.35, pz, 1, 0.15, 0.05, 0.15, 0.01);
             }
         }
 
-        // Intra-cloud static arcs before & between strikes
+        // Intra-cloud static arcs inside the thundercloud
         if (e.age % 4 == 0) {
             double a1 = rand.nextDouble() * Math.PI * 2.0;
             double a2 = a1 + 2.2;
@@ -247,7 +266,7 @@ public class ActiveSpellManager {
             SpellVfx.spawnJaggedLightningArc(level, p1, p2, 5, 0.45);
         }
 
-        // 4 massive cloud-to-ground lightning strikes at ticks 16, 28, 40, 52
+        // 4 massive volumetric cloud-to-ground lightning strikes — NO sky-piercing vanilla LightningBolt!
         if (e.age == 16 || e.age == 28 || e.age == 40 || e.age == 52) {
             AABB box = new AABB(c.x - 6.2, c.y - 1.5, c.z - 6.2, c.x + 6.2, c.y + 5.0, c.z + 6.2);
             List<LivingEntity> targets = level.getEntitiesOfClass(LivingEntity.class, box,
@@ -260,22 +279,22 @@ public class ActiveSpellManager {
             } else {
                 double a = rand.nextDouble() * Math.PI * 2.0;
                 double r = rand.nextDouble() * 4.2;
-                strikePos = c.add(Math.cos(a) * r, 0, Math.sin(a) * r);
+                double sx = c.x + Math.cos(a) * r;
+                double sz = c.z + Math.sin(a) * r;
+                strikePos = new Vec3(sx, SpellVfx.snapYToGround(level, sx, c.y, sz), sz);
             }
 
-            LightningBolt bolt = EntityType.LIGHTNING_BOLT.create(level);
-            if (bolt != null) {
-                bolt.moveTo(strikePos.x, strikePos.y, strikePos.z);
-                bolt.setVisualOnly(true);
-                level.addFreshEntity(bolt);
-            }
-
-            // Connect storm cloud directly to the ground strike point
-            Vec3 cloudOrigin = strikePos.add((rand.nextDouble() - 0.5) * 1.6, cloudHeight, (rand.nextDouble() - 0.5) * 1.6);
-            SpellVfx.spawnJaggedLightningArc(level, cloudOrigin, strikePos, 9, 0.85);
-            SpellVfx.spawnHorizontalCircle(level, strikePos.add(0, 0.25, 0), 3.4, 28, ParticleTypes.ELECTRIC_SPARK);
-            SpellVfx.spawnHorizontalCircle(level, strikePos.add(0, 0.35, 0), 2.2, 20, SpellVfx.LIGHTNING_CORE);
-            level.playSound(null, strikePos.x, strikePos.y, strikePos.z, SoundEvents.LIGHTNING_BOLT_THUNDER, SoundSource.PLAYERS, 1.35f, 1.05f);
+            // Originates INSIDE the storm cloud (c.y + cloudHeight - 0.3), NEVER above it!
+            Vec3 cloudOrigin = new Vec3(
+                    strikePos.x + (rand.nextDouble() - 0.5) * 1.4,
+                    c.y + cloudHeight - 0.3,
+                    strikePos.z + (rand.nextDouble() - 0.5) * 1.4
+            );
+            SpellVfx.spawnVolumetricCloudBolt(level, cloudOrigin, strikePos);
+            level.playSound(null, strikePos.x, strikePos.y, strikePos.z,
+                    SoundEvents.LIGHTNING_BOLT_THUNDER, SoundSource.PLAYERS, 1.35f, 1.05f);
+            level.playSound(null, strikePos.x, strikePos.y, strikePos.z,
+                    SoundEvents.LIGHTNING_BOLT_IMPACT, SoundSource.PLAYERS, 1.1f, 1.2f);
 
             AABB blastBox = new AABB(strikePos.x - 3.6, strikePos.y - 1.5, strikePos.z - 3.6,
                     strikePos.x + 3.6, strikePos.y + 3.5, strikePos.z + 3.6);
@@ -316,15 +335,24 @@ public class ActiveSpellManager {
         final ServerLevel level;
         final UUID entityId;
         final Vec3 anchorPos;
+        final float frozenYaw;
+        final float frozenPitch;
         final List<BlockPos> iceBlocks;
         int remainingTicks;
+        final boolean hadNoAi;
+        final boolean wasSilent;
 
-        FrozenPrison(ServerLevel level, UUID entityId, Vec3 anchorPos, List<BlockPos> iceBlocks, int remainingTicks) {
+        FrozenPrison(ServerLevel level, UUID entityId, Vec3 anchorPos, float frozenYaw, float frozenPitch,
+                     List<BlockPos> iceBlocks, int remainingTicks, boolean hadNoAi, boolean wasSilent) {
             this.level = level;
             this.entityId = entityId;
             this.anchorPos = anchorPos;
+            this.frozenYaw = frozenYaw;
+            this.frozenPitch = frozenPitch;
             this.iceBlocks = iceBlocks;
             this.remainingTicks = remainingTicks;
+            this.hadNoAi = hadNoAi;
+            this.wasSilent = wasSilent;
         }
     }
 }
